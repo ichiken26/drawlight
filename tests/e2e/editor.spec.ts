@@ -192,6 +192,6 @@ test('cross-page ER field and typed function Tab completion, drag label and save
   await page.getByRole('button', { name: /Export/ }).click()
   const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Download Mermaid/ }).click()])
   const exported = await readFile(await download.path()!, 'utf8')
-  expect(exported).toContain('fetchUser(id: uuid)')
+  expect(exported).toContain('fetchUser(id#58; uuid)')
   expect(exported).not.toContain('{{function:')
 })

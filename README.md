@@ -82,12 +82,14 @@ The generated browser module is placed in `public/geometry/` (git-ignored). The 
 
 ```sh
 npm run test
+npm run typecheck
+npm run test:e2e
 npm run build
 cd backend && gleam check
 cargo test --manifest-path geometry/Cargo.toml
 ```
 
-CI includes front-end build/tests, Gleam checks, and Rust tests. A GitHub Pages deployment workflow is included; enable GitHub Pages → **GitHub Actions** in repository Settings to publish the static client. The static site runs in local-only mode.
+CI includes Nuxt typechecking, browser interaction tests, a live Gleam API smoke test, and Rust/Wasm verification. A GitHub Pages deployment workflow is included; enable GitHub Pages → **GitHub Actions** in repository Settings to publish the static client. The static site runs in local-only mode.
 
 ## Scope
 

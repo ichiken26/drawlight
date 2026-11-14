@@ -4,6 +4,7 @@ import type { Diagram, DiagramEdge, DiagramNode, NodeKind, Tool } from '../utils
 import { templates, type DiagramTemplate } from '../utils/templates'
 import { initGeometry, pathBetween, snap } from '../utils/geometry'
 import { toMermaid } from '../utils/mermaid'
+import { useDiagramHistory } from './useDiagramHistory'
 import { createConnection, formatEntityFields, parseEntityFields, sequenceBottom, sequencePath, sequenceY, toolsFor } from '../utils/diagramSemantics'
 import type { Cardinality, MessageType } from '../utils/model'
 
@@ -26,8 +27,6 @@ export function useDrawlightEditor() {
   const status = ref<'local' | 'connected' | 'saving' | 'offline'>('local')
   const camera = reactive({ x: 0, y: 0, zoom: 1 })
   const cursor = reactive({ x: 0, y: 0 })
-  const undoStack = ref<string[]>([])
-  const redoStack = ref<string[]>([])
   const selectedNode = computed(() => diagram.value.nodes.find(n => n.id === selectedId.value) || null)
   const selectedEdge = computed(() => diagram.value.edges.find(e => e.id === selectedEdgeId.value) || null)
   const availableKinds = computed(() => kinds.filter(item => toolsFor(diagram.value.kind).includes(item.kind)))
@@ -66,30 +65,8 @@ export function useDrawlightEditor() {
     if (toastTimer) clearTimeout(toastTimer)
     toastTimer = setTimeout(() => { toast.value = '' }, 2500)
   }
-  function snapshot() { return JSON.stringify(diagram.value) }
-  function checkpoint(before: string) {
-    if (snapshot() === before) return
-    undoStack.value.push(before)
-    if (undoStack.value.length > 80) undoStack.value.shift()
-    redoStack.value = []
-    scheduleSave()
-  }
-  function undo() {
-    const before = undoStack.value.pop()
-    if (!before) return
-    redoStack.value.push(snapshot())
-    diagram.value = parseDiagram(JSON.parse(before))
-    clearSelection()
-    scheduleSave()
-  }
-  function redo() {
-    const after = redoStack.value.pop()
-    if (!after) return
-    undoStack.value.push(snapshot())
-    diagram.value = parseDiagram(JSON.parse(after))
-    clearSelection()
-    scheduleSave()
-  }
+  const { undoStack, redoStack, snapshot, checkpoint, undo, redo, clearHistory } =
+    useDiagramHistory(diagram, scheduleSave, clearSelection)
   function clearSelection() {
     selectedId.value = null
     selectedEdgeId.value = null
@@ -413,8 +390,7 @@ export function useDrawlightEditor() {
         suppressSync = true
         diagram.value = remote
         suppressSync = false
-        undoStack.value = []
-        redoStack.value = []
+        clearHistory()
       }
       status.value = 'connected'
     } catch { status.value = 'offline' }

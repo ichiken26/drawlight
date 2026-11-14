@@ -29,6 +29,7 @@ const {
         <button type="button" class="icon-button" title="Undo (Ctrl+Z)" aria-label="Undo" :disabled="!undoStack.length" @click="undo"><Undo2 :size="18" /></button>
         <button type="button" class="icon-button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" :disabled="!redoStack.length" @click="redo"><Redo2 :size="18" /></button>
         <span class="header-divider"></span>
+        <button type="button" class="button secondary templates-button" @click="showTemplates"><Layers :size="16" /> Templates</button>
         <button type="button" class="button secondary" @click="fileInput?.click()"><Upload :size="16" /> Import</button>
         <div class="export-wrap">
           <button type="button" class="button primary" @click="exportOpen = !exportOpen"><ArrowDownToLine :size="16" /> Export <ChevronDown :size="14" /></button>
@@ -55,7 +56,7 @@ const {
         <button :class="['tool-button', { active: tool === 'start' }]" title="Start / End (S)" aria-label="Add start" @click="setTool('start')"><Circle :size="21" /><span>S</span></button>
         <button :class="['tool-button', { active: tool === 'note' }]" title="Note (N)" aria-label="Add note" @click="setTool('note')"><span class="shape-icon note"></span><span>N</span></button>
         <div class="sidebar-spacer"></div>
-        <button class="tool-button" title="Reset demo diagram" aria-label="Reset demo" @click="resetDemo"><RotateCcw :size="18" /></button>
+        <button class="tool-button" title="Templates (T)" aria-label="Browse templates" @click="showTemplates"><Layers :size="18" /></button>
       </aside>
 
       <main class="canvas-area">
@@ -127,8 +128,8 @@ const {
             <div class="color-swatches"><button v-for="color in palette" :key="color" :style="{ background: color }" :class="{ active: selectedNode.color === color }" :aria-label="`Color ${color}`" @click="updateNode({ color })"><Check v-if="selectedNode.color === color" :size="13" /></button></div>
           </div>
           <div class="inspector-section"><div class="section-title">Position</div><div class="input-grid">
-            <label>X <input class="property-input" type="number" :value="selectedNode.x" @change="updateNode({ x: snap(Number(($event.target as HTMLInputElement).value), GRID) })" /></label>
-            <label>Y <input class="property-input" type="number" :value="selectedNode.y" @change="updateNode({ y: snap(Number(($event.target as HTMLInputElement).value), GRID) })" /></label>
+            <label>X <input class="property-input" type="number" :value="selectedNode.x" @change="setNodePosition('x', ($event.target as HTMLInputElement).value)" /></label>
+            <label>Y <input class="property-input" type="number" :value="selectedNode.y" @change="setNodePosition('y', ($event.target as HTMLInputElement).value)" /></label>
           </div></div>
           <div class="inspector-section"><button class="danger-button" @click="deleteSelected"><Trash2 :size="15" /> Delete shape</button></div>
         </template>
@@ -143,6 +144,43 @@ const {
         </template>
         <div class="inspector-footer"><div class="powered"><Circle :size="9" :fill="wasmReady ? '#48c0a4' : '#b4bed1'" :color="wasmReady ? '#48c0a4' : '#b4bed1'" /> {{ wasmReady ? 'Rust / Wasm geometry' : 'JS geometry fallback' }}</div><span>POC v0.1</span></div>
       </aside>
+    </div>
+    <div v-if="templatesOpen" class="template-overlay" @click.self="templatesOpen = false">
+      <section class="template-dialog" role="dialog" aria-modal="true" aria-labelledby="template-title">
+        <header class="template-dialog-header">
+          <div>
+            <div class="template-eyebrow">DRAWLIGHT LIBRARY</div>
+            <h2 id="template-title">Start with a template</h2>
+            <p>Pick a starting point. You can always undo a template switch.</p>
+          </div>
+          <button class="template-close" aria-label="Close templates" @click="templatesOpen = false"><X :size="20" /></button>
+        </header>
+        <div class="template-grid">
+          <button v-for="preset in templates" :key="preset.id" class="template-card"
+            :aria-label="'Use ' + preset.name + ' template'" @click="applyTemplate(preset)">
+            <div class="template-preview">
+              <div v-if="!preset.diagram.nodes.length" class="template-blank"><Plus :size="28" /></div>
+              <svg v-else viewBox="0 0 1220 520" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+                <line v-for="(segment, i) in preset.previewEdges" :key="i"
+                  :x1="segment.x1" :y1="segment.y1" :x2="segment.x2" :y2="segment.y2"
+                  stroke="#97a7c3" stroke-width="7" stroke-linecap="round" />
+                <g v-for="node in preset.diagram.nodes" :key="node.id">
+                  <rect :x="node.x" :y="node.y" :width="node.w" :height="node.h"
+                    :rx="node.kind === 'start' ? 36 : 16" :fill="node.color" stroke="#8897b4" stroke-width="3" />
+                  <text :x="node.x + node.w / 2" :y="node.y + node.h / 2 + 6" text-anchor="middle"
+                    font-size="20" font-weight="700" fill="#46536c">{{ node.label.length > 17 ? node.label.slice(0, 16) + '…' : node.label }}</text>
+                </g>
+              </svg>
+            </div>
+            <div class="template-description">
+              <span class="template-category">{{ preset.category }}</span>
+              <strong>{{ preset.name }}</strong>
+              <span class="template-detail">{{ preset.description }}</span>
+              <span class="template-node-count">{{ preset.diagram.nodes.length }} shapes · {{ preset.diagram.edges.length }} connections</span>
+            </div>
+          </button>
+        </div>
+      </section>
     </div>
     <Transition name="toast"><div v-if="toast" class="toast-message"><Check :size="16" /> {{ toast }}</div></Transition>
   </div>

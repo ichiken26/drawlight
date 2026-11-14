@@ -1,9 +1,20 @@
 import { createShape, shapeDefaults, palette } from '../../shared/shapes.mjs'
+import { normalizeDiagram } from '../../shared/document.mjs'
 export { shapeDefaults, palette }
 
-export type NodeKind = 'process' | 'decision' | 'database' | 'start' | 'note'
+export type FlowNodeKind = 'process' | 'decision' | 'database' | 'start' | 'note'
+export type NodeKind = FlowNodeKind | 'entity' | 'participant'
+export type DiagramKind = 'flowchart' | 'er' | 'sequence'
 export type Tool = 'select' | NodeKind
+export type Cardinality = 'one-to-one' | 'one-to-many' | 'many-to-many'
+export type MessageType = 'call' | 'async' | 'return'
 
+export interface EntityField {
+  id: string
+  name: string
+  dataType: string
+  key: 'PK' | 'FK' | null
+}
 export interface DiagramNode {
   id: string
   kind: NodeKind
@@ -13,15 +24,19 @@ export interface DiagramNode {
   w: number
   h: number
   color: string
+  fields?: EntityField[]
 }
 export interface DiagramEdge {
   id: string
   from: string
   to: string
   label: string
+  cardinality?: Cardinality
+  messageType?: MessageType
 }
 export interface Diagram {
-  version: 1
+  version: 2
+  kind: DiagramKind
   title: string
   nodes: DiagramNode[]
   edges: DiagramEdge[]
@@ -33,11 +48,14 @@ export const kinds: { kind: NodeKind; label: string; shortcut: string }[] = [
   { kind: 'decision', label: 'Decision', shortcut: 'D' },
   { kind: 'database', label: 'Database', shortcut: 'B' },
   { kind: 'start', label: 'Start / End', shortcut: 'S' },
-  { kind: 'note', label: 'Note', shortcut: 'N' }
+  { kind: 'note', label: 'Note', shortcut: 'N' },
+  { kind: 'entity', label: 'Entity', shortcut: 'E' },
+  { kind: 'participant', label: 'Participant', shortcut: 'P' }
 ]
 
 export const demo: Diagram = {
-  version: 1,
+  version: 2,
+  kind: 'flowchart',
   title: 'System overview',
   nodes: [
     { id: 'client', kind: 'process', label: 'Nuxt UI', x: 96, y: 160, w: 176, h: 88, color: palette[0] },
@@ -63,32 +81,7 @@ export function newNode(kind: NodeKind, x: number, y: number): DiagramNode {
   return createShape(crypto.randomUUID(), kind, shapeDefaults[kind].label, x, y)
 }
 
-export function parseDiagram(value: unknown): Diagram {
-  if (!value || typeof value !== 'object') throw new Error('Invalid diagram')
-  const d = value as Partial<Diagram>
-  if (!Array.isArray(d.nodes) || !Array.isArray(d.edges) || d.nodes.length > 1000 || d.edges.length > 2000) {
-    throw new Error('Unsupported diagram structure or size')
-  }
-  const validKinds = kinds.map(k => k.kind)
-  const ids = new Set<string>()
-  const nodes: DiagramNode[] = d.nodes.map((raw) => {
-    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !/^[\w-]{1,100}$/.test(raw.id)
-      || ids.has(raw.id) || !validKinds.includes(raw.kind)) throw new Error('Invalid node')
-    ids.add(raw.id)
-    for (const key of ['x', 'y', 'w', 'h'] as const) {
-      if (!Number.isFinite(raw[key]) || Math.abs(raw[key]) > 100000) throw new Error('Invalid geometry')
-    }
-    if (raw.w < 32 || raw.h < 32 || typeof raw.label !== 'string' || raw.label.length > 200) throw new Error('Invalid label/size')
-    return { id: raw.id, kind: raw.kind, label: raw.label, x: raw.x, y: raw.y, w: raw.w, h: raw.h,
-      color: typeof raw.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(raw.color) ? raw.color : palette[0] }
-  })
-  const edgeIds = new Set<string>()
-  const edges: DiagramEdge[] = d.edges.map(raw => {
-    if (!raw || typeof raw !== 'object' || typeof raw.id !== 'string' || !/^[\w-]{1,100}$/.test(raw.id)
-      || edgeIds.has(raw.id) || !ids.has(raw.from) || !ids.has(raw.to) || raw.from === raw.to
-      || typeof raw.label !== 'string' || raw.label.length > 200) throw new Error('Invalid edge')
-    edgeIds.add(raw.id)
-    return { id: raw.id, from: raw.from, to: raw.to, label: raw.label }
-  })
-  return { version: 1, title: typeof d.title === 'string' ? d.title.slice(0, 120) : 'Untitled diagram', nodes, edges }
+/** Validate and migrate imported v1 diagrams into canonical v2 documents. */
+export function parseDiagram(input: unknown): Diagram {
+  return normalizeDiagram(input)
 }

@@ -64,6 +64,10 @@ jobs:
             -H 'Content-Type: application/json' \
             -d '{"version":2,"kind":"flowchart","title":"Smoke","nodes":[],"edges":[]}'
           curl -fsS http://127.0.0.1:8000/diagram | grep -F '"title":"Smoke"'
+          curl -fsS -X PUT http://127.0.0.1:8000/workspace \
+            -H 'Content-Type: application/json' \
+            -d '{"format":"drawlight-workspace","version":1,"activeId":"main","pages":[{"id":"main","diagram":{"version":2,"kind":"flowchart","title":"Shared","nodes":[],"edges":[]}}],"functions":[]}'
+          curl -fsS http://127.0.0.1:8000/workspace | grep -F '"title":"Shared"'
   rust:
     runs-on: ubuntu-latest
     steps:

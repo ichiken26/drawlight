@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { demo, newNode, parseDiagram, cloneDiagram } from '../app/utils/model'
+import { demo, newNode, parseDiagram, cloneDiagram, createWorkspace, parseWorkspace } from '../app/utils/model'
+import { referenceOptions, resolveReferences, filterCompletions, insertCompletion } from '../shared/references.mjs'
 import { toMermaid } from '../app/utils/mermaid'
 import { templates } from '../app/utils/templates'
 import { orthogonalPath } from '../app/utils/geometry'
@@ -103,4 +104,44 @@ test('mode-specific validation rejects malformed semantic graphs', () => {
   assert.throws(() => parseDiagram(flow), /node/)
   assert.deepEqual(toolsFor('er'), ['entity'])
   assert.deepEqual(toolsFor('sequence'), ['participant'])
+})
+
+test('cross-diagram ER fields and functions autocomplete as live references', () => {
+  const workspace = createWorkspace(demo)
+  const er = cloneDiagram(templates.find(t => t.id === 'er-saas')!.diagram)
+  workspace.pages.push({ id: 'schema', diagram: er })
+  workspace.functions.push({
+    id: 'fetch-user', name: 'fetchUser',
+    inputs: [{ name: 'id', type: 'uuid' }],
+    outputs: [{ name: 'user', type: 'User' }]
+  })
+  const candidates = referenceOptions(workspace)
+  const email = candidates.find(item => item.label === 'users.email')
+  const fn = candidates.find(item => item.kind === 'function')
+  assert.ok(email && fn)
+  assert.match(fn.label, /fetchUser\(id: uuid\) → user: User/)
+  const matches = filterCompletions(workspace, '@users.e', 8)
+  assert.equal(matches[0]?.key, email.key)
+  const completed = insertCompletion('Get @users.e', 12, email)
+  assert.match(completed.value, /\{\{field:/)
+  workspace.pages[0]!.diagram.edges[0]!.label = completed.value + ' via ' + fn.token
+  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.email/)
+  assert.match(toMermaid(workspace.pages[0]!.diagram, workspace), /fetchUser\(id: uuid\)/)
+  er.nodes[0]!.fields![1]!.name = 'contact_email'
+  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.contact_email/)
+  assert.match(toMermaid(workspace.pages[0]!.diagram, workspace), /users.contact_email/)
+})
+
+test('workspace migration, schema validation and edge label positions survive save', () => {
+  const original = createWorkspace(demo)
+  original.pages[0]!.diagram.edges[0]!.labelOffset = { x: 42, y: -33 }
+  const copy = parseWorkspace(JSON.parse(JSON.stringify(original)))
+  assert.deepEqual(copy.pages[0]!.diagram.edges[0]!.labelOffset, { x: 42, y: -33 })
+  assert.equal(copy.activeId, 'main')
+  const migrated = parseWorkspace(demo)
+  assert.equal(migrated.pages[0]!.diagram.kind, 'flowchart')
+  assert.throws(() => parseWorkspace({ ...original, activeId: 'missing' }), /active page/)
+  assert.throws(() => parseDiagram({
+    ...demo, edges: [{ ...demo.edges[0]!, labelOffset: { x: Infinity, y: 1 } }]
+  }), /geometry/)
 })

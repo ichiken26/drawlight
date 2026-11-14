@@ -139,3 +139,59 @@ test('sequence template renders lifelines and ordered messages, exports sequence
   expect(mermaid).toContain('participant p1 as Browser')
   expect(mermaid).toContain('-->>')
 })
+
+test('cross-page ER field and typed function Tab completion, drag label and save', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await page.getByRole('button', { name: 'Use ER · SaaS schema template' }).click()
+  await expect(page.locator('.diagram-node')).toHaveCount(4)
+
+  // A new page preserves the ER definitions rather than replacing them.
+  await page.getByRole('button', { name: 'New diagram page' }).click()
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await page.getByRole('button', { name: 'Use Sequence · API authentication template' }).click()
+  await expect(page.locator('.edge')).toHaveCount(6)
+
+  // Click the existing label to edit and complete a linked ER field using Tab.
+  await page.locator('.draggable-edge-label').first().click()
+  const label = page.getByRole('textbox', { name: 'Connection label' })
+  await label.fill('@users.e')
+  await expect(page.getByRole('option', { name: /users.email/ })).toBeVisible()
+  await label.press('Tab')
+  await expect(label).toHaveValue(/\{\{field:/)
+  await expect(page.locator('.draggable-edge-label').first()).toContainText('users.email')
+
+  // A single drag repositions the rendered label and persists the offset.
+  const item = page.locator('.draggable-edge-label').first()
+  const original = await item.getAttribute('transform')
+  const box = await item.boundingBox()
+  expect(box).toBeTruthy()
+  await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2)
+  await page.mouse.down()
+  await page.mouse.move(box!.x + box!.width / 2 + 64, box!.y + box!.height / 2 + 42, { steps: 7 })
+  await page.mouse.up()
+  await expect(item).not.toHaveAttribute('transform', original!)
+  const moved = await item.getAttribute('transform')
+  await page.reload()
+  await expect(page.locator('.draggable-edge-label').first()).toHaveAttribute('transform', moved!)
+
+  // Function input and output contracts are shared completion candidates.
+  await page.getByRole('button', { name: 'Functions', exact: true }).click()
+  await page.getByRole('button', { name: 'Add function' }).click()
+  await page.getByRole('textbox', { name: 'Function name' }).fill('fetchUser')
+  await page.getByRole('textbox', { name: 'Function inputs' }).fill('id: uuid')
+  await page.getByRole('textbox', { name: 'Function outputs' }).fill('user: User')
+  await page.getByRole('button', { name: 'Save definition' }).click()
+  await page.getByRole('button', { name: 'Close catalog' }).click()
+
+  await page.locator('.draggable-edge-label').first().click()
+  await label.fill('@fetch')
+  await expect(page.getByRole('option', { name: /fetchUser/ })).toBeVisible()
+  await label.press('Tab')
+  await expect(page.locator('.draggable-edge-label').first()).toContainText('fetchUser')
+  await page.getByRole('button', { name: /Export/ }).click()
+  const [download] = await Promise.all([page.waitForEvent('download'), page.getByRole('button', { name: /Download Mermaid/ }).click()])
+  const exported = await readFile(await download.path()!, 'utf8')
+  expect(exported).toContain('fetchUser(id: uuid)')
+  expect(exported).not.toContain('{{function:')
+})

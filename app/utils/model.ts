@@ -1,5 +1,6 @@
 import { createShape, shapeDefaults, palette } from '../../shared/shapes.mjs'
 import { normalizeDiagram } from '../../shared/document.mjs'
+import { newWorkspace, normalizeWorkspace } from '../../shared/workspace.mjs'
 export { shapeDefaults, palette }
 
 export type FlowNodeKind = 'process' | 'decision' | 'database' | 'start' | 'note'
@@ -33,7 +34,27 @@ export interface DiagramEdge {
   label: string
   cardinality?: Cardinality
   messageType?: MessageType
+  labelOffset?: { x: number; y: number }
 }
+export interface FunctionParameter { name: string; type: string }
+export interface FunctionDefinition {
+  id: string
+  name: string
+  inputs: FunctionParameter[]
+  outputs: FunctionParameter[]
+}
+export interface DiagramPage { id: string; diagram: Diagram }
+export interface Workspace {
+  format: 'drawlight-workspace'
+  version: 1
+  activeId: string
+  pages: DiagramPage[]
+  functions: FunctionDefinition[]
+}
+
+export function createWorkspace(diagram: Diagram): Workspace { return newWorkspace(diagram) }
+export function parseWorkspace(source: unknown): Workspace { return normalizeWorkspace(source) }
+
 export interface Diagram {
   version: 2
   kind: DiagramKind

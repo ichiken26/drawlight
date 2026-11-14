@@ -68,7 +68,13 @@ export function normalizeDiagram(input) {
     edgeIds.add(raw.id)
     const edge = {
       id: raw.id, from: raw.from, to: raw.to,
-      label: boundedString(raw.label, 200, 'edge label')
+      label: boundedString(raw.label, 200, 'edge label'),
+      ...(raw.labelOffset == null ? {} : {
+        labelOffset: {
+          x: coordinate(raw.labelOffset.x),
+          y: coordinate(raw.labelOffset.y)
+        }
+      })
     }
     if (kind === 'er') {
       const cardinality = raw.cardinality ?? 'one-to-many'

@@ -17,7 +17,7 @@ const {
     undo, redo, setTool, handleStageDown, handleNodeDown, handleNodeClick, startLink,
     handleStageMove, handleStageUp, handleWheel, changeZoom, fitView, updateNode,
     updateEdgeLabel, renameNode, deleteSelected, edgePath, edgeLabelPosition, selectEdge,
-    copyMermaid, exportMermaid, exportJson, exportSvg, importJson, showTemplates, applyTemplate,
+    copyMermaid, exportMermaid, exportJson, exportWorkspace, exportSvg, importJson, showTemplates, applyTemplate,
     setNodePosition, availableKinds, sequenceEnd, formatEntityFields, updateEntityFields, updateEdgeSemantics,
     workspace, pageChoices, workspaceOpen, referenceItems, switchPage, createPage,
     createFunction, updateFunction, deleteFunction, visibleEdgeLabel, handleEdgeLabelDown
@@ -50,7 +50,8 @@ const {
           <div v-if="exportOpen" class="export-menu">
             <button @click="copyMermaid"><Copy :size="16" /><span>Copy Mermaid<small>Paste into Markdown</small></span></button>
             <button @click="exportMermaid"><Download :size="16" /><span>Download Mermaid<small>.mmd</small></span></button>
-            <button @click="exportJson"><Save :size="16" /><span>Drawlight JSON<small>Lossless editable file</small></span></button>
+            <button @click="exportJson"><Save :size="16" /><span>Drawlight JSON<small>Current page only</small></span></button>
+            <button @click="exportWorkspace"><Save :size="16" /><span>Workspace JSON<small>All pages, schemas and functions</small></span></button>
             <button @click="exportSvg"><Download :size="16" /><span>Export SVG<small>Vector image</small></span></button>
           </div>
         </div>

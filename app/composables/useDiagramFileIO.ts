@@ -1,15 +1,17 @@
 import type { Ref } from 'vue'
-import type { Diagram } from '../utils/model'
-import { parseDiagram } from '../utils/model'
+import type { Diagram, Workspace } from '../utils/model'
+import { parseDiagram, parseWorkspace } from '../utils/model'
 import { sequenceBottom } from '../utils/diagramSemantics'
 import { toMermaid } from '../utils/mermaid'
 
 interface DiagramFileIO {
   diagram: Ref<Diagram>
+  workspace: Ref<Workspace>
   stage: Ref<SVGSVGElement | null>
   exportOpen: Ref<boolean>
   notify: (message: string) => void
   onImport: (diagram: Diagram) => Promise<void>
+  onImportWorkspace: (workspace: Workspace) => Promise<void>
 }
 
 function filename(diagram: Diagram) {
@@ -32,15 +34,15 @@ function download(name: string, contents: string, mime: string) {
  * Internal Drawlight JSON is lossless; Mermaid intentionally omits canvas coordinates.
  */
 export function useDiagramFileIO(options: DiagramFileIO) {
-  const { diagram, stage, exportOpen, notify, onImport } = options
+  const { diagram, workspace, stage, exportOpen, notify, onImport, onImportWorkspace } = options
   function close() { exportOpen.value = false }
   function exportMermaid() {
-    download(filename(diagram.value) + '.mmd', toMermaid(diagram.value), 'text/plain')
+    download(filename(diagram.value) + '.mmd', toMermaid(diagram.value, workspace.value), 'text/plain')
     close()
     notify('Mermaid exported')
   }
   async function copyMermaid() {
-    const content = toMermaid(diagram.value)
+    const content = toMermaid(diagram.value, workspace.value)
     try {
       await navigator.clipboard.writeText(content)
       notify('Mermaid copied!')
@@ -55,6 +57,13 @@ export function useDiagramFileIO(options: DiagramFileIO) {
       JSON.stringify(diagram.value, null, 2), 'application/json')
     close()
     notify('Drawlight JSON exported')
+  }
+  function exportWorkspace() {
+    const page = workspace.value.pages.find(p => p.id === workspace.value.activeId)
+    if (page) page.diagram = JSON.parse(JSON.stringify(diagram.value))
+    download('drawlight-workspace.json', JSON.stringify(workspace.value, null, 2), 'application/json')
+    close()
+    notify('Workspace exported')
   }
   function exportSvg() {
     if (!stage.value || diagram.value.nodes.length === 0) {
@@ -91,11 +100,17 @@ export function useDiagramFileIO(options: DiagramFileIO) {
       return
     }
     try {
-      await onImport(parseDiagram(JSON.parse(await file.text())))
-      notify('Diagram imported')
+      const value = JSON.parse(await file.text())
+      if (value?.format === 'drawlight-workspace') {
+        await onImportWorkspace(parseWorkspace(value))
+        notify('Workspace imported')
+      } else {
+        await onImport(parseDiagram(value))
+        notify('Diagram imported')
+      }
     } catch {
       notify('Invalid Drawlight JSON')
     }
   }
-  return { exportMermaid, copyMermaid, exportJson, exportSvg, importJson }
+  return { exportMermaid, copyMermaid, exportJson, exportWorkspace, exportSvg, importJson }
 }

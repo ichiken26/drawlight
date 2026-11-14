@@ -414,8 +414,9 @@ export function useDrawlightEditor() {
     selectedId.value = null
     linkingFrom.value = null
   }
-  const { copyMermaid, exportMermaid, exportJson, exportSvg, importJson } = useDiagramFileIO({
-    diagram, stage, exportOpen, notify: flash,
+  const { copyMermaid, exportMermaid, exportJson, exportWorkspace, exportSvg, importJson } = useDiagramFileIO({
+    diagram, workspace, stage, exportOpen, notify: flash,
+    onImportWorkspace: async imported => { restoreWorkspace(imported) },
     onImport: async (imported) => {
       const before = snapshot()
       diagram.value = imported
@@ -541,7 +542,7 @@ export function useDrawlightEditor() {
     undo, redo, setTool, handleStageDown, handleNodeDown, handleNodeClick, startLink,
     handleStageMove, handleStageUp, handleWheel, changeZoom, fitView, updateNode,
     updateEdgeLabel, renameNode, deleteSelected, edgePath, edgeLabelPosition, selectEdge,
-    copyMermaid, exportMermaid, exportJson, exportSvg, importJson, showTemplates, applyTemplate,
+    copyMermaid, exportMermaid, exportJson, exportWorkspace, exportSvg, importJson, showTemplates, applyTemplate,
     setNodePosition
   }
 }

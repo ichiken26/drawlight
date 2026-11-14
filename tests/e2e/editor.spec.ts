@@ -9,6 +9,8 @@ test('two-click shapes, two-click connection, undo/redo, import/export, autosave
   const edges = page.locator('.edge')
   await expect(nodes).toHaveCount(4)
   await expect(edges).toHaveCount(3)
+  // CI compiles Rust/Wasm before launching this browser. Confirm it actually loads.
+  await expect(page.getByText('Rust / Wasm geometry')).toBeVisible()
 
   // Click 1 selects a shape, click 2 places it directly on the canvas.
   await page.getByRole('button', { name: 'Add process' }).click()

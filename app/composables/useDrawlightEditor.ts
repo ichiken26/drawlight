@@ -1,6 +1,7 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
-import { cloneDiagram, demo, GRID, kinds, newNode, palette, parseDiagram } from '../utils/model'
-import type { Diagram, DiagramEdge, DiagramNode, NodeKind, Tool } from '../utils/model'
+import { cloneDiagram, createWorkspace, parseWorkspace, demo, GRID, kinds, newNode, palette, parseDiagram } from '../utils/model'
+import type { Diagram, DiagramEdge, DiagramNode, NodeKind, Tool, Workspace, FunctionDefinition, FunctionParameter } from '../utils/model'
+import { resolveReferences, referenceOptions } from '../../shared/references.mjs'
 import { templates, type DiagramTemplate } from '../utils/templates'
 import { initGeometry, pathBetween, snap } from '../utils/geometry'
 import { useDiagramHistory } from './useDiagramHistory'
@@ -11,11 +12,18 @@ import type { Cardinality, MessageType } from '../utils/model'
 /** A single state controller for editing, history, gestures, and persistence. */
 export function useDrawlightEditor() {
   const STORAGE_KEY = 'drawlight:document:v1'
+  const WORKSPACE_KEY = 'drawlight:workspace:v1'
   const runtime = useRuntimeConfig()
   const syncEnabled = runtime.public.syncEnabled === true
   const stage = ref<SVGSVGElement | null>(null)
   const fileInput = ref<HTMLInputElement | null>(null)
   const diagram = ref<Diagram>(cloneDiagram(demo))
+  const workspace = ref<Workspace>(createWorkspace(diagram.value))
+  const workspaceOpen = ref(false)
+  const pageChoices = computed(() => workspace.value.pages.map(page => ({
+    id: page.id, name: page.diagram.title, kind: page.diagram.kind
+  })))
+  const referenceItems = computed(() => referenceOptions(workspace.value))
   const tool = ref<Tool>('select')
   const selectedId = ref<string | null>(null)
   const selectedEdgeId = ref<string | null>(null)
@@ -41,7 +49,7 @@ export function useDrawlightEditor() {
   })
 
   let gesture: null | {
-    kind: 'node' | 'pan'
+    kind: 'node' | 'pan' | 'edge-label'
     id?: string
     pointer: number
     startX: number
@@ -67,6 +75,72 @@ export function useDrawlightEditor() {
   }
   const { undoStack, redoStack, snapshot, checkpoint, undo, redo, clearHistory } =
     useDiagramHistory(diagram, scheduleSave, clearSelection)
+  function syncPage() {
+    const page = workspace.value.pages.find(p => p.id === workspace.value.activeId)
+    if (page) page.diagram = cloneDiagram(diagram.value)
+  }
+
+  function switchPage(id: string) {
+    if (id === workspace.value.activeId) return
+    const next = workspace.value.pages.find(page => page.id === id)
+    if (!next) return
+    syncPage()
+    workspace.value.activeId = id
+    diagram.value = cloneDiagram(next.diagram)
+    clearSelection()
+    clearHistory()
+    tool.value = 'select'
+    scheduleSave()
+    nextTick(fitView)
+  }
+
+  function createPage() {
+    syncPage()
+    const id = crypto.randomUUID()
+    const next: Diagram = { version: 2, kind: 'flowchart', title: 'New diagram',
+      nodes: [], edges: [] }
+    workspace.value.pages.push({ id, diagram: cloneDiagram(next) })
+    workspace.value.activeId = id
+    diagram.value = next
+    clearSelection()
+    clearHistory()
+    tool.value = 'select'
+    scheduleSave()
+    nextTick(fitView)
+  }
+
+  function createFunction() {
+    workspace.value.functions.push({ id: crypto.randomUUID(), name: 'newFunction',
+      inputs: [{ name: 'input', type: 'string' }], outputs: [{ name: 'result', type: 'boolean' }] })
+    scheduleSave()
+  }
+  function updateFunction(fn: FunctionDefinition) {
+    const index = workspace.value.functions.findIndex(item => item.id === fn.id)
+    if (index < 0) return
+    try {
+      const candidate = parseWorkspace({
+        ...workspace.value,
+        functions: workspace.value.functions.map(item => item.id === fn.id ? fn : item)
+      })
+      workspace.value.functions = candidate.functions
+      scheduleSave()
+    } catch { flash('Invalid function definition') }
+  }
+  function deleteFunction(id: string) {
+    workspace.value.functions = workspace.value.functions.filter(fn => fn.id !== id)
+    scheduleSave()
+  }
+  function restoreWorkspace(source: Workspace) {
+    workspace.value = parseWorkspace(source)
+    const active = workspace.value.pages.find(p => p.id === workspace.value.activeId)!
+    diagram.value = cloneDiagram(active.diagram)
+    clearSelection()
+    clearHistory()
+    tool.value = 'select'
+    scheduleSave()
+    nextTick(fitView)
+  }
+
   function clearSelection() {
     selectedId.value = null
     selectedEdgeId.value = null
@@ -166,11 +240,39 @@ export function useDrawlightEditor() {
       if (!node) return
       node.x = snap(gesture.originalX + dx / camera.zoom, GRID)
       if (diagram.value.kind !== 'sequence') node.y = snap(gesture.originalY + dy / camera.zoom, GRID)
+    } else if (gesture.kind === 'edge-label') {
+      const edge = diagram.value.edges.find(item => item.id === gesture?.id)
+      if (!edge) return
+      edge.labelOffset = {
+        x: Math.round(gesture.originalX + dx / camera.zoom),
+        y: Math.round(gesture.originalY + dy / camera.zoom)
+      }
     }
   }
+  function handleEdgeLabelDown(event: PointerEvent, id: string) {
+    if (event.button !== 0) return
+    const edge = diagram.value.edges.find(item => item.id === id)
+    if (!edge) return
+    selectedId.value = null
+    selectedEdgeId.value = id
+    linkingFrom.value = null
+    gesture = { kind: 'edge-label', id, pointer: event.pointerId,
+      startX: event.clientX, startY: event.clientY,
+      originalX: edge.labelOffset?.x || 0, originalY: edge.labelOffset?.y || 0,
+      before: snapshot(), moved: false }
+    stage.value?.setPointerCapture(event.pointerId)
+  }
+  function visibleEdgeLabel(edge: DiagramEdge) {
+    const label = resolveReferences(edge.label, workspace.value)
+    if (diagram.value.kind !== 'er') return label
+    const c = edge.cardinality === 'one-to-one' ? '1:1'
+      : edge.cardinality === 'many-to-many' ? 'N:M' : '1:N'
+    return c + ' · ' + (label || 'relates')
+  }
+
   function handleStageUp(event: PointerEvent) {
     if (!gesture || event.pointerId !== gesture.pointer) return
-    if (gesture.kind === 'node' && gesture.moved) checkpoint(gesture.before)
+    if (gesture.kind !== 'pan' && gesture.moved) checkpoint(gesture.before)
     gesture = null
     if (stage.value?.hasPointerCapture(event.pointerId)) stage.value.releasePointerCapture(event.pointerId)
   }
@@ -301,10 +403,10 @@ export function useDrawlightEditor() {
     const a = nodeMap.value.get(edge.from), b = nodeMap.value.get(edge.to)
     if (!a || !b) return { x: 0, y: 0 }
     return {
-      x: (a.x + a.w / 2 + b.x + b.w / 2) / 2,
-      y: diagram.value.kind === 'sequence'
+      x: (a.x + a.w / 2 + b.x + b.w / 2) / 2 + (edge.labelOffset?.x || 0),
+      y: (diagram.value.kind === 'sequence'
         ? sequenceY(diagram.value, edge) - 19
-        : (a.y + a.h / 2 + b.y + b.h / 2) / 2 - 10
+        : (a.y + a.h / 2 + b.y + b.h / 2) / 2 - 10) + (edge.labelOffset?.y || 0)
     }
   }
   function selectEdge(id: string) {
@@ -346,13 +448,17 @@ export function useDrawlightEditor() {
   async function loadRemote() {
     if (!syncEnabled || gesture || Date.now() - editedAt < 2000 || status.value === 'saving') return
     try {
-      const result = await $fetch<unknown>('/api/diagram')
-      const remote = parseDiagram(result)
-      if (JSON.stringify(remote) !== snapshot() && Date.now() - editedAt > 2000) {
+      const result = await $fetch<unknown>('/api/workspace')
+      const remote = parseWorkspace(result)
+      if (JSON.stringify(remote) !== JSON.stringify(workspace.value)
+        && Date.now() - editedAt > 2000) {
         suppressSync = true
-        diagram.value = remote
+        workspace.value = remote
+        const active = remote.pages.find(p => p.id === remote.activeId)!
+        diagram.value = cloneDiagram(active.diagram)
         suppressSync = false
         clearHistory()
+        clearSelection()
       }
       status.value = 'connected'
     } catch { status.value = 'offline' }
@@ -361,7 +467,8 @@ export function useDrawlightEditor() {
     if (!syncEnabled) return
     status.value = 'saving'
     try {
-      await $fetch('/api/diagram', { method: 'PUT', body: diagram.value })
+      syncPage()
+      await $fetch('/api/workspace', { method: 'PUT', body: workspace.value })
       status.value = 'connected'
     } catch { status.value = 'offline' }
   }
@@ -369,12 +476,14 @@ export function useDrawlightEditor() {
   function flushLocal() {
     if (localSaveTimer) clearTimeout(localSaveTimer)
     localSaveTimer = undefined
-    try { localStorage.setItem(STORAGE_KEY, snapshot()) } catch { /* storage may be unavailable */ }
+    syncPage()
+    try { localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspace.value)) } catch { /* storage may be unavailable */ }
   }
 
   function scheduleSave() {
     if (!mounted || suppressSync) return
     editedAt = Date.now()
+    syncPage()
     if (localSaveTimer) clearTimeout(localSaveTimer)
     localSaveTimer = setTimeout(flushLocal, 250)
     if (syncEnabled) {
@@ -389,8 +498,13 @@ export function useDrawlightEditor() {
 
   onMounted(async () => {
     try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) diagram.value = parseDiagram(JSON.parse(stored))
+      const stored = localStorage.getItem(WORKSPACE_KEY)
+      const legacy = localStorage.getItem(STORAGE_KEY)
+      if (stored || legacy) {
+        workspace.value = parseWorkspace(JSON.parse(stored || legacy!))
+        const current = workspace.value.pages.find(page => page.id === workspace.value.activeId)!
+        diagram.value = cloneDiagram(current.diagram)
+      }
     } catch { flash('Stored document was invalid; showing demo') }
     const baseURL = runtime.app.baseURL
     wasmReady.value = await initGeometry(baseURL)
@@ -417,7 +531,10 @@ export function useDrawlightEditor() {
     if (toastTimer) clearTimeout(toastTimer)
   })
   return {
-    stage, fileInput, diagram, tool, selectedId, selectedEdgeId, linkingFrom,
+    stage, fileInput, diagram, workspace, pageChoices, workspaceOpen, referenceItems,
+    switchPage, createPage, createFunction, updateFunction, deleteFunction, restoreWorkspace,
+    visibleEdgeLabel, handleEdgeLabelDown,
+    tool, selectedId, selectedEdgeId, linkingFrom,
     availableKinds, sequenceEnd, formatEntityFields, updateEntityFields, updateEdgeSemantics,
     exportOpen, templatesOpen, toast, wasmReady, status, camera, undoStack, redoStack,
     selectedNode, selectedEdge, cameraTransform, guidePath, kinds, palette, templates,

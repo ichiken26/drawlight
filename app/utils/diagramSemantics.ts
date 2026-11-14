@@ -28,11 +28,18 @@ export function createConnection(diagram: Diagram, from: string, to: string, id:
 export function parseEntityFields(text: string, existing: readonly EntityField[]): EntityField[] {
   const lines = text.split(/\r?\n/).map(line => line.trim()).filter(Boolean)
   if (lines.length > 60) throw new Error('An entity supports at most 60 fields')
+  // Retain stable IDs when users reorder rows. A changed name falls back
+  // to the old row index, so existing references also survive a rename.
+  const used = new Set<string>()
   return lines.map((line, i) => {
-    const match = /^([\w-]{1,80})\s*:\s*([\w()[\],.]{1,80})(?:\s+(PK|FK))?$/.exec(line)
+    const match = /^([\\w-]{1,80})\\s*:\\s*([\\w()[\\],.]{1,80})(?:\\s+(PK|FK))?$/.exec(line)
     if (!match) throw new Error(`Invalid field at line ${i + 1}; use "name: type PK"`)
+    const named = existing.find(item => item.name === match[1] && !used.has(item.id))
+    const byRow = existing[i] && !used.has(existing[i]!.id) ? existing[i] : undefined
+    const id = (named || byRow)?.id || crypto.randomUUID()
+    used.add(id)
     return {
-      id: existing[i]?.id ?? crypto.randomUUID(),
+      id,
       name: match[1]!,
       dataType: match[2]!,
       key: (match[3] as 'PK' | 'FK' | undefined) ?? null

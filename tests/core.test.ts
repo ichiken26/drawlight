@@ -116,7 +116,7 @@ test('cross-diagram ER fields and functions autocomplete as live references', ()
     outputs: [{ name: 'user', type: 'User' }]
   })
   const candidates = referenceOptions(workspace)
-  const email = candidates.find(item => item.label === 'users.email')
+  const email = candidates.find(item => item.label === 'users.email: varchar')
   const fn = candidates.find(item => item.kind === 'function')
   assert.ok(email && fn)
   assert.match(fn.label, /fetchUser\(id: uuid\) → user: User/)
@@ -125,10 +125,10 @@ test('cross-diagram ER fields and functions autocomplete as live references', ()
   const completed = insertCompletion('Get @users.e', 12, email)
   assert.match(completed.value, /\{\{field:/)
   workspace.pages[0]!.diagram.edges[0]!.label = completed.value + ' via ' + fn.token
-  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.email/)
+  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.email: varchar/)
   assert.match(toMermaid(workspace.pages[0]!.diagram, workspace), /fetchUser\(id: uuid\)/)
   er.nodes[0]!.fields![1]!.name = 'contact_email'
-  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.contact_email/)
+  assert.match(resolveReferences(workspace.pages[0]!.diagram.edges[0]!.label, workspace), /users.contact_email: varchar/)
   assert.match(toMermaid(workspace.pages[0]!.diagram, workspace), /users.contact_email/)
 })
 

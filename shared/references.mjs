@@ -17,8 +17,8 @@ export function referenceOptions(workspace) {
         items.push({
           key: 'field:' + page.id + ':' + node.id + ':' + field.id,
           token: '{{field:' + page.id + ':' + node.id + ':' + field.id + '}}',
-          label: node.label + '.' + field.name,
-          detail: field.dataType + (field.key ? ' · ' + field.key : ''),
+          label: node.label + '.' + field.name + ': ' + field.dataType,
+          detail: (field.key ? field.key + ' · ' : '') + 'ER field',
           kind: 'field'
         })
       }

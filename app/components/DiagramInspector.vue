@@ -25,7 +25,7 @@ const emit = defineEmits<{
 </script>
 
 <template>
-      <aside class="inspector">
+      <aside class="inspector" :class="{ 'has-selection': selectedNode || selectedEdge }">
         <div class="inspector-heading"><span>PROPERTIES</span><span class="inspector-icon"><Layers :size="16" /></span></div>
         <template v-if="selectedNode">
           <div class="inspector-section"><div class="selection-eyebrow"><span class="selection-chip">NODE</span><span>{{ selectedNode.kind }}</span></div>

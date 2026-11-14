@@ -229,3 +229,16 @@ kbd { background: #f5f6fa; border: 1px solid #e8eaf2; box-shadow: 0 1px #dce1eb;
 .catalog-empty { display:grid;place-items:center;padding:26px;color:#8996aa; font-size:13px; }
 @media(max-width:1170px){ .page-navigator select { max-width:125px; } }
 @media(max-width:850px){ .page-navigator { flex:1; min-width:0; } .page-navigator select { max-width:135px; min-width:0; } .catalog-layout { grid-template-columns:130px minmax(0,1fr); } }
+
+/* Mobile: keep the function catalog reachable, and show selected properties as a sheet. */
+@media (max-width:850px) {
+  .inspector.has-selection {
+    display:flex;position:fixed;right:0;bottom:0;left:58px;
+    width:auto;max-height:48dvh;border:1px solid #dce4f0;
+    border-radius:14px 14px 0 0;box-shadow:0 -12px 35px #1b2e4c23;
+    z-index:35;overflow:auto;
+  }
+  .inspector.has-selection .inspector-heading {height:48px}
+  .inspector.has-selection .inspector-section {padding:13px 17px}
+  .inspector.has-selection .inspector-footer {display:none}
+}

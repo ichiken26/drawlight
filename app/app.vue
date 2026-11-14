@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import {
-  ArrowDownToLine, Check, ChevronDown, Circle, Copy, Diamond,
+  ArrowDownToLine, Braces, Check, ChevronDown, Circle, Copy, Diamond,
   Download, Focus, Grid3X3, Layers, Link2, MousePointer2, Plus, Redo2,
   Save, Trash2, Undo2, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-vue-next'
@@ -75,6 +75,7 @@ const {
         <button v-else-if="diagram.kind === 'er'" :class="['tool-button', { active: tool === 'entity' }]" title="Entity table (E)" aria-label="Add entity" @click="setTool('entity')"><span class="shape-icon rectangle"></span><span>E</span></button>
         <button v-else :class="['tool-button', { active: tool === 'participant' }]" title="Participant (P)" aria-label="Add participant" @click="setTool('participant')"><span class="shape-icon rectangle"></span><span>P</span></button>
         <div class="sidebar-spacer"></div>
+        <button class="tool-button" title="Function catalog" aria-label="Open function catalog" @click="workspaceOpen = true"><Braces :size="19" /></button>
         <button class="tool-button" title="Templates (T)" aria-label="Browse templates" @click="showTemplates"><Layers :size="18" /></button>
       </aside>
 

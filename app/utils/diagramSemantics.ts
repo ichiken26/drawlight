@@ -32,7 +32,7 @@ export function parseEntityFields(text: string, existing: readonly EntityField[]
   // to the old row index, so existing references also survive a rename.
   const used = new Set<string>()
   return lines.map((line, i) => {
-    const match = /^([\\w-]{1,80})\\s*:\\s*([\\w()[\\],.]{1,80})(?:\\s+(PK|FK))?$/.exec(line)
+    const match = /^([\w-]{1,80})\s*:\s*([\w()[\],.]{1,80})(?:\s+(PK|FK))?$/.exec(line)
     if (!match) throw new Error(`Invalid field at line ${i + 1}; use "name: type PK"`)
     const named = existing.find(item => item.name === match[1] && !used.has(item.id))
     const byRow = existing[i] && !used.has(existing[i]!.id) ? existing[i] : undefined

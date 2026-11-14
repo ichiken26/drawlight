@@ -1,9 +1,11 @@
-import { createNode, type Diagram, type NodeKind } from './model'
+import { createNode, type Diagram, type NodeKind, type DiagramKind, type EntityField, type Cardinality, type MessageType } from './model'
 
-type NodeSpec = readonly [id: string, kind: NodeKind, label: string, x: number, y: number]
-type EdgeSpec = readonly [from: string, to: string, label?: string]
+type FieldSpec = readonly [name: string, dataType: string, key?: 'PK' | 'FK']
+type NodeSpec = readonly [id: string, kind: NodeKind, label: string, x: number, y: number, fields?: readonly FieldSpec[]]
+type EdgeSpec = readonly [from: string, to: string, label?: string, semantic?: Cardinality | MessageType]
 
 interface TemplateSpec {
+  kind?: DiagramKind
   id: string
   name: string
   category: string
@@ -28,14 +30,24 @@ export interface DiagramTemplate {
  */
 function buildTemplate(spec: TemplateSpec): DiagramTemplate {
   const diagram: Diagram = {
-    version: 1,
+    version: 2,
+    kind: spec.kind || 'flowchart',
     title: spec.name,
-    nodes: spec.nodes.map(([id, kind, label, x, y]) => createNode(id, kind, label, x, y)),
-    edges: spec.edges.map(([from, to, label = ''], index) => ({
+    nodes: spec.nodes.map(([id, kind, label, x, y, fieldSpecs]) => {
+      const node = createNode(id, kind, label, x, y)
+      if (kind === 'entity' && fieldSpecs) {
+        node.fields = fieldSpecs.map(([name, dataType, key], index): EntityField => ({
+          id: `${id}-field-${index + 1}`, name, dataType, key: key || null
+        }))
+        node.h = Math.max(72, 50 + node.fields.length * 25)
+      }
+      return node
+    }),
+    edges: spec.edges.map(([from, to, label = '', semantic], index) => ({
       id: `${spec.id}-edge-${index + 1}`,
-      from,
-      to,
-      label
+      from, to, label,
+      ...(spec.kind === 'er' ? { cardinality: (semantic || 'one-to-many') as Cardinality } : {}),
+      ...(spec.kind === 'sequence' ? { messageType: (semantic || 'call') as MessageType } : {})
     }))
   }
   const byId = new Map(diagram.nodes.map(node => [node.id, node]))
@@ -122,23 +134,76 @@ const definitions: readonly TemplateSpec[] = [
     ]
   },
   {
-    id: 'data-model',
-    name: 'Data model overview',
-    category: 'Database',
-    description: 'A lightweight entity relationship overview (not full ER notation).',
+    id: 'er-saas',
+    kind: 'er',
+    name: 'ER · SaaS schema',
+    category: 'ER diagram',
+    description: 'Tables, typed columns, primary/foreign keys and relationship cardinality.',
     nodes: [
-      ['users', 'database', 'users', 112, 72],
-      ['projects', 'database', 'projects', 428, 72],
-      ['diagrams', 'database', 'diagrams', 744, 72],
-      ['members', 'database', 'memberships', 428, 312],
-      ['revisions', 'database', 'revisions', 744, 312]
+      ['users', 'entity', 'users', 60, 60, [['id', 'uuid', 'PK'], ['email', 'varchar'], ['created_at', 'timestamp']]],
+      ['projects', 'entity', 'projects', 430, 60, [['id', 'uuid', 'PK'], ['owner_id', 'uuid', 'FK'], ['name', 'varchar']]],
+      ['diagrams', 'entity', 'diagrams', 800, 60, [['id', 'uuid', 'PK'], ['project_id', 'uuid', 'FK'], ['kind', 'varchar']]],
+      ['memberships', 'entity', 'memberships', 430, 300, [['user_id', 'uuid', 'FK'], ['project_id', 'uuid', 'FK'], ['role', 'varchar']]]
     ],
     edges: [
-      ['users', 'projects', 'owner_id'],
-      ['users', 'members', 'user_id'],
-      ['projects', 'members', 'project_id'],
-      ['projects', 'diagrams', 'project_id'],
-      ['diagrams', 'revisions', 'diagram_id']
+      ['users', 'projects', 'owns', 'one-to-many'],
+      ['users', 'memberships', 'joins', 'one-to-many'],
+      ['projects', 'memberships', 'has', 'one-to-many'],
+      ['projects', 'diagrams', 'contains', 'one-to-many']
+    ]
+  },
+  {
+    id: 'er-blog',
+    kind: 'er',
+    name: 'ER · Blog database',
+    category: 'ER diagram',
+    description: 'Users, posts and comments with 1:N relationships.',
+    nodes: [
+      ['users', 'entity', 'users', 60, 96, [['id', 'uuid', 'PK'], ['handle', 'varchar']]],
+      ['posts', 'entity', 'posts', 440, 96, [['id', 'uuid', 'PK'], ['user_id', 'uuid', 'FK'], ['body', 'text']]],
+      ['comments', 'entity', 'comments', 800, 96, [['id', 'uuid', 'PK'], ['post_id', 'uuid', 'FK'], ['message', 'text']]]
+    ],
+    edges: [['users', 'posts', 'writes', 'one-to-many'], ['posts', 'comments', 'has', 'one-to-many']]
+  },
+  {
+    id: 'sequence-auth',
+    kind: 'sequence',
+    name: 'Sequence · API authentication',
+    category: 'Sequence diagram',
+    description: 'Chronological request, database lookup and response messages.',
+    nodes: [
+      ['browser', 'participant', 'Browser', 60, 64],
+      ['nuxt', 'participant', 'Nuxt server', 330, 64],
+      ['api', 'participant', 'Gleam API', 610, 64],
+      ['db', 'participant', 'Database', 890, 64]
+    ],
+    edges: [
+      ['browser', 'nuxt', 'GET /dashboard', 'call'],
+      ['nuxt', 'api', 'Verify token', 'call'],
+      ['api', 'db', 'Find session', 'call'],
+      ['db', 'api', 'Session record', 'return'],
+      ['api', 'nuxt', 'Auth result', 'return'],
+      ['nuxt', 'browser', 'HTML response', 'return']
+    ]
+  },
+  {
+    id: 'sequence-events',
+    kind: 'sequence',
+    name: 'Sequence · Event processing',
+    category: 'Sequence diagram',
+    description: 'Publish, background processing and acknowledgement.',
+    nodes: [
+      ['web', 'participant', 'Web app', 60, 64],
+      ['api', 'participant', 'API', 350, 64],
+      ['queue', 'participant', 'Event bus', 640, 64],
+      ['worker', 'participant', 'Worker', 930, 64]
+    ],
+    edges: [
+      ['web', 'api', 'POST /jobs', 'call'],
+      ['api', 'queue', 'Enqueue job', 'async'],
+      ['api', 'web', '202 Accepted', 'return'],
+      ['queue', 'worker', 'Deliver event', 'async'],
+      ['worker', 'api', 'Report result', 'async']
     ]
   },
   {

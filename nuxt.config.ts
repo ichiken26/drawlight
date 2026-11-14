@@ -1,10 +1,12 @@
+import { env } from 'node:process'
+
 export default defineNuxtConfig({
   compatibilityDate: '2026-07-01',
   ssr: false,
   devtools: { enabled: false },
   css: ['~/assets/css/main.css'],
   app: {
-    baseURL: process.env.NUXT_APP_BASE_URL || '/',
+    baseURL: env.NUXT_APP_BASE_URL || '/',
     head: {
       title: 'Drawlight — Sketch systems, not pixels',
       meta: [
@@ -14,9 +16,9 @@ export default defineNuxtConfig({
     }
   },
   runtimeConfig: {
-    gleamApiUrl: process.env.GLEAM_API_URL || 'http://127.0.0.1:8000',
+    gleamApiUrl: env.GLEAM_API_URL || 'http://127.0.0.1:8000',
     public: {
-      syncEnabled: process.env.NUXT_PUBLIC_SYNC_ENABLED === 'true'
+      syncEnabled: env.NUXT_PUBLIC_SYNC_ENABLED === 'true'
     }
   }
 })

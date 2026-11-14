@@ -6,7 +6,7 @@ export const shapeDefaults = Object.freeze({
   database: { w: 176, h: 88, label: 'Database', color: palette[4] },
   start: { w: 144, h: 72, label: 'Start', color: palette[1] },
   note: { w: 176, h: 88, label: 'Note', color: palette[3] },
-  entity: { w: 248, h: 116, label: 'new_table', color: palette[4] },
+  entity: { w: 248, h: 100, label: 'new_table', color: palette[4] },
   participant: { w: 168, h: 68, label: 'Service', color: palette[0] }
 })
 

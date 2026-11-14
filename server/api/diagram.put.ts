@@ -1,11 +1,17 @@
+import { normalizeDiagram } from '../../shared/document.mjs'
+
 export default defineEventHandler(async (event) => {
   const config = useRuntimeConfig()
-  if (!config.public.syncEnabled) throw createError({ statusCode: 404, statusMessage: 'Sync disabled' })
-  const body = await readBody(event)
-  // This is a local PoC proxy only. The public static build has no write route.
-  if (!body || body.version !== 1 || !Array.isArray(body.nodes) || !Array.isArray(body.edges)
-    || body.nodes.length > 1000 || body.edges.length > 2000) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid diagram' })
+  if (!config.public.syncEnabled) {
+    throw createError({ statusCode: 404, statusMessage: 'Sync disabled' })
   }
-  return await $fetch(`${config.gleamApiUrl}/diagram`, { method: 'PUT', body })
+  try {
+    const document = normalizeDiagram(await readBody(event))
+    return await $fetch(`${config.gleamApiUrl}/diagram`, { method: 'PUT', body: document })
+  } catch (error) {
+    if (error instanceof Error && error.message.startsWith('Invalid Drawlight document:')) {
+      throw createError({ statusCode: 400, statusMessage: error.message })
+    }
+    throw error
+  }
 })

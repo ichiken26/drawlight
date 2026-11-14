@@ -43,12 +43,12 @@ fn handle_request(req: wisp.Request) -> wisp.Response {
         decode.success(version)
       }
       case json.parse(body, version_decoder) {
-        Ok(1) ->
+        Ok(2) ->
           case simplifile.write(to: "./drawlight.json", contents: body) {
             Ok(_) -> wisp.json_response("{\"saved\":true}", 200)
             Error(_) -> wisp.internal_server_error()
           }
-        _ -> wisp.bad_request("Expected Drawlight JSON version 1")
+        _ -> wisp.bad_request("Expected Drawlight JSON version 2")
       }
     }
 

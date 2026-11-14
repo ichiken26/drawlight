@@ -5,6 +5,7 @@ import {
   Save, Trash2, Undo2, Upload, X, ZoomIn, ZoomOut
 } from 'lucide-vue-next'
 import { useDrawlightEditor } from './composables/useDrawlightEditor'
+import type { Cardinality, MessageType } from './utils/model'
 
 const {
     stage, fileInput, diagram, tool, selectedId, selectedEdgeId, linkingFrom,
@@ -174,13 +175,13 @@ const {
             <input class="property-input" :value="selectedEdge.label" maxlength="200" placeholder="e.g. HTTP" @change="updateEdgeLabel(($event.target as HTMLInputElement).value)" />
             <template v-if="diagram.kind === 'er'">
               <label for="cardinality" class="field-label semantic-label">Cardinality</label>
-              <select id="cardinality" class="property-input" :value="selectedEdge.cardinality" @change="updateEdgeSemantics({ cardinality: ($event.target as HTMLSelectElement).value as import('./utils/model').Cardinality })">
+              <select id="cardinality" class="property-input" :value="selectedEdge.cardinality" @change="updateEdgeSemantics({ cardinality: ($event.target as HTMLSelectElement).value as Cardinality })">
                 <option value="one-to-one">1 : 1</option><option value="one-to-many">1 : N</option><option value="many-to-many">N : M</option>
               </select>
             </template>
             <template v-if="diagram.kind === 'sequence'">
               <label for="message-type" class="field-label semantic-label">Message type</label>
-              <select id="message-type" class="property-input" :value="selectedEdge.messageType" @change="updateEdgeSemantics({ messageType: ($event.target as HTMLSelectElement).value as import('./utils/model').MessageType })">
+              <select id="message-type" class="property-input" :value="selectedEdge.messageType" @change="updateEdgeSemantics({ messageType: ($event.target as HTMLSelectElement).value as MessageType })">
                 <option value="call">Call</option><option value="async">Asynchronous</option><option value="return">Return</option>
               </select>
             </template>

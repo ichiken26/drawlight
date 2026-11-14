@@ -37,7 +37,7 @@ const emit = defineEmits<{
               @change="emit('entity-fields', ($event.target as HTMLTextAreaElement).value)"></textarea>
           </div>
           <div class="inspector-section"><div class="section-title">Appearance</div><label class="field-label">Fill color</label>
-            <div class="color-swatches"><button v-for="color in palette" :key="color" :style="{ background: color }" :class="{ active: selectedNode.color === color }" :aria-label="`Color ${color}`" @click="emit('node-patch', { color })"><Check v-if="selectedNode.color === color" :size="13" /></button></div>
+            <div class="color-swatches"><button v-for="color in palette" :key="color" :style="{ background: color }" :class="{ active: selectedNode.color === color }" :aria-label="`Color ${color}`" @click="emit('node-patch', { color: String(color) })"><Check v-if="selectedNode.color === color" :size="13" /></button></div>
           </div>
           <div class="inspector-section"><div class="section-title">Position</div><div class="input-grid">
             <label>X <input class="property-input" type="number" :value="selectedNode.x" @change="emit('node-position', 'x', ($event.target as HTMLInputElement).value)" /></label>

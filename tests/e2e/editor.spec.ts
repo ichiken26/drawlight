@@ -59,7 +59,7 @@ test('templates load in two clicks and switching can be undone', async ({ page }
   await expect(nodes).toHaveCount(4)
   await page.getByRole('button', { name: 'Templates', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Start with a template' })).toBeVisible()
-  await expect(page.locator('.template-card')).toHaveCount(6)
+  await expect(page.locator('.template-card')).toHaveCount(9)
 
   await page.getByRole('button', { name: 'Use CI / CD pipeline template' }).click()
   await expect(nodes).toHaveCount(6)
@@ -96,4 +96,46 @@ test('dragging commits a move and persists it after a reload', async ({ page }) 
   expect(moved).toBeTruthy()
   await page.reload()
   await expect(page.locator('.diagram-node').first()).toHaveAttribute('transform', moved!)
+})
+
+test('ER template is editable and exports PK/FK and cardinality', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await page.getByRole('button', { name: 'Use ER · SaaS schema template' }).click()
+  await expect(page.locator('.diagram-node')).toHaveCount(4)
+  await expect(page.locator('.diagram-node').first().getByText('id')).toBeVisible()
+  await page.locator('.diagram-node').first().click()
+  await expect(page.locator('#entity-fields')).toHaveValue(/id: uuid PK/)
+  await page.locator('#entity-fields').fill('id: uuid PK\nemail: varchar\nstatus: varchar')
+  await page.locator('#entity-fields').blur()
+
+  await page.getByRole('button', { name: /Export/ }).click()
+  const [exported] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Download Mermaid/ }).click()
+  ])
+  const mermaid = await readFile(await exported.path()!, 'utf8')
+  expect(mermaid).toContain('erDiagram')
+  expect(mermaid).toContain('varchar status')
+  expect(mermaid).toContain('||--o{')
+  await page.reload()
+  await page.locator('.diagram-node').first().click()
+  await expect(page.locator('#entity-fields')).toHaveValue(/status: varchar/)
+})
+
+test('sequence template renders lifelines and ordered messages, exports sequenceDiagram', async ({ page }) => {
+  await page.goto('/')
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await page.getByRole('button', { name: 'Use Sequence · API authentication template' }).click()
+  await expect(page.locator('.sequence-lifelines line')).toHaveCount(4)
+  await expect(page.locator('.edge')).toHaveCount(6)
+  await page.getByRole('button', { name: /Export/ }).click()
+  const [file] = await Promise.all([
+    page.waitForEvent('download'),
+    page.getByRole('button', { name: /Download Mermaid/ }).click()
+  ])
+  const mermaid = await readFile(await file.path()!, 'utf8')
+  expect(mermaid).toContain('sequenceDiagram')
+  expect(mermaid).toContain('participant p1 as Browser')
+  expect(mermaid).toContain('-->>')
 })

@@ -21,7 +21,10 @@ Click **Templates**, then choose a card: two clicks total. Available presets:
 - API request flow (success/error branches)
 - Web app architecture (Nuxt, API, services, queue, database)
 - CI/CD pipeline (build, tests, deployment)
-- Data model overview (lightweight relationships, not full ER notation)
+- ER · SaaS schema (typed attributes, PK/FK, 1:1 / 1:N / N:M cardinalities)
+- ER · Blog database (users, posts and comments)
+- Sequence · API authentication (participants, ordered requests and replies)
+- Sequence · Event processing (asynchronous messages)
 - Event-driven services (producer, event bus, consumers)
 
 Switching templates is fully undoable with **Ctrl/Cmd+Z**. Press **T** to open the gallery from the keyboard. Templates share the same editable JSON and Mermaid export as manually created diagrams.
@@ -93,6 +96,11 @@ CI includes Nuxt typechecking, browser interaction tests, a live Gleam API smoke
 
 ## Scope
 
-This is an **interactive PoC**, not yet a Figma alternative: flowchart-style node editor, orthogonal connectors, snapping, pan/zoom, undo/redo, import/export, autosave, optional Gleam persistence, MCP editing. No authentication, concurrent multi-user reconciliation, full ER/sequence diagram semantics, or production-grade scalability yet.
+This is an **interactive PoC**, not yet a Figma alternative: mode-aware flowchart, ER and sequence diagram editing, orthogonal connectors, snapping, pan/zoom, undo/redo, import/export, autosave, optional Gleam persistence, MCP editing. No authentication, concurrent multi-user reconciliation, advanced UML/ER notation (weak entities, nested sequence fragments), or production-grade scalability yet.
 
-Source of truth is Drawlight JSON. Mermaid exports semantic relationships, but **does not preserve exact canvas coordinates**.
+Source of truth is Drawlight JSON **v2**. Legacy v1 flowchart JSON is migrated on import/load. Drawlight JSON uses a common node/edge model plus a `kind` discriminator:
+- `flowchart`: basic shape nodes and connections
+- `er`: `entity` nodes with typed `fields`, PK/FK and edge `cardinality`
+- `sequence`: `participant` nodes with ordered message edges and `messageType`
+
+The schema is validated by the same pure JS module in the browser and MCP server. Mermaid exporters select the diagram type. Mermaid exports semantic relationships, but **does not preserve exact canvas coordinates**.

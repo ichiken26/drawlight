@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { demo, newNode, parseDiagram, cloneDiagram } from '../app/utils/model'
 import { toMermaid } from '../app/utils/mermaid'
+import { templates } from '../app/utils/templates'
 import { orthogonalPath } from '../app/utils/geometry'
 
 test('initial diagram is valid and non-destructive to clone', () => {
@@ -38,4 +39,16 @@ test('orthogonal path and default dimensions', () => {
   const node = newNode('database', 30, 40)
   assert.equal(node.w, 176)
   assert.equal(node.kind, 'database')
+})
+
+test('all six engineering templates have stable IDs and valid documents', () => {
+  assert.equal(templates.length, 6)
+  for (const preset of templates) {
+    assert.equal(parseDiagram(preset.diagram).nodes.length, preset.diagram.nodes.length)
+    assert.equal(new Set(preset.diagram.nodes.map(n => n.id)).size, preset.diagram.nodes.length)
+    assert.equal(new Set(preset.diagram.edges.map(e => e.id)).size, preset.diagram.edges.length)
+    assert.equal(preset.previewEdges.length, preset.diagram.edges.length)
+    assert.match(toMermaid(preset.diagram), /^flowchart LR/)
+  }
+  assert.equal(templates.find(t => t.id === 'blank')?.diagram.nodes.length, 0)
 })

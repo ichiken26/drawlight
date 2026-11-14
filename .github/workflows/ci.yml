@@ -62,7 +62,7 @@ jobs:
           fi
           curl -fsS -X PUT http://127.0.0.1:8000/diagram \
             -H 'Content-Type: application/json' \
-            -d '{"version":1,"title":"Smoke","nodes":[],"edges":[]}'
+            -d '{"version":2,"kind":"flowchart","title":"Smoke","nodes":[],"edges":[]}'
           curl -fsS http://127.0.0.1:8000/diagram | grep -F '"title":"Smoke"'
   rust:
     runs-on: ubuntu-latest

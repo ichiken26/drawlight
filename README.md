@@ -13,11 +13,25 @@ npm run dev
 
 Open http://localhost:3000. **The editor works immediately without any backend or account** and automatically saves to your browser's local storage.
 
+### Built-in engineering templates
+
+Click **Templates**, then choose a card: two clicks total. Available presets:
+
+- Blank canvas
+- API request flow (success/error branches)
+- Web app architecture (Nuxt, API, services, queue, database)
+- CI/CD pipeline (build, tests, deployment)
+- Data model overview (lightweight relationships, not full ER notation)
+- Event-driven services (producer, event bus, consumers)
+
+Switching templates is fully undoable with **Ctrl/Cmd+Z**. Press **T** to open the gallery from the keyboard. Templates share the same editable JSON and Mermaid export as manually created diagrams.
+
 ### Editing in at most two clicks
 
 | Action | Interaction |
 | --- | --- |
 | Create a shape | Click a shape in the left toolbar, then click the canvas |
+| Load a template | Click Templates, then click a preset |
 | Connect two shapes | Click the small **+** port on the source, then click the target |
 | Move a shape | Drag directly (one gesture) |
 | Rename | Double-click a shape (or select it and use the inspector) |
@@ -27,7 +41,7 @@ Open http://localhost:3000. **The editor works immediately without any backend o
 | Undo/redo | Ctrl/Cmd+Z, Ctrl/Cmd+Shift+Z |
 | Export | Mermaid, JSON, SVG; import JSON from the top bar |
 
-**Shortcut keys:** V = select, R = process, D = decision, B = database, S = start, N = note, Escape = cancel.
+**Shortcut keys:** T = templates, V = select, R = process, D = decision, B = database, S = start, N = note, Escape = cancel.
 
 ### Optional Gleam persistence and AI editing
 
@@ -77,6 +91,6 @@ CI includes front-end build/tests, Gleam checks, and Rust tests. A GitHub Pages 
 
 ## Scope
 
-This is an **interactive PoC**, not yet a Figma alternative: flowchart-style node editor, orthogonal connectors, snapping, pan/zoom, undo/redo, import/export, autosave, optional Gleam persistence, MCP editing. No authentication, concurrent multi-user reconciliation, ER/sequence diagram semantics, or production-grade scalability yet.
+This is an **interactive PoC**, not yet a Figma alternative: flowchart-style node editor, orthogonal connectors, snapping, pan/zoom, undo/redo, import/export, autosave, optional Gleam persistence, MCP editing. No authentication, concurrent multi-user reconciliation, full ER/sequence diagram semantics, or production-grade scalability yet.
 
 Source of truth is Drawlight JSON. Mermaid exports semantic relationships, but **does not preserve exact canvas coordinates**.

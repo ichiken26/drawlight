@@ -3,6 +3,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
 import { toMermaid } from '../shared/mermaid.mjs'
+import { createShape, shapeDefaults } from '../shared/shapes.mjs'
 
 const api = (process.env.DRAWLIGHT_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 const server = new McpServer({ name: 'drawlight', version: '0.1.0' })
@@ -25,17 +26,14 @@ const mutate = async (fn) => {
   await save(diagram)
   return response({ success: true, result })
 }
-const shapeKinds = ['process', 'decision', 'database', 'start', 'note']
-const colors = { process: '#e2eafc', decision: '#fff0cf', database: '#ede4fd', start: '#d9f6ee', note: '#f9deeb' }
+const shapeKinds = Object.keys(shapeDefaults)
 
 server.tool('read_diagram', 'Read the current Drawlight document and its node/edge IDs', {}, async () => response(await get()))
 server.tool('add_node', 'Create a diagram node at coordinates in diagram units', {
   kind: z.enum(shapeKinds), label: z.string().min(1).max(200), x: z.number().finite(), y: z.number().finite()
 }, async ({ kind, label, x, y }) => mutate(d => {
   const id = randomUUID()
-  const w = kind === 'start' ? 144 : 176
-  const h = kind === 'start' ? 72 : kind === 'decision' ? 112 : 88
-  d.nodes.push({ id, kind, label, x, y, w, h, color: colors[kind] })
+  d.nodes.push(createShape(id, kind, label, x, y))
   return { id }
 }))
 server.tool('move_node', 'Move an existing node to diagram coordinates', {

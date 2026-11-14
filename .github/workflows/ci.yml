@@ -43,6 +43,27 @@ jobs:
           gleam-version: '1.14.0'
           rebar3-version: '3'
       - run: gleam check
+      - name: Smoke test Gleam HTTP persistence
+        run: |
+          gleam run > /tmp/drawlight-gleam.log 2>&1 &
+          backend_pid=$!
+          trap 'kill "$backend_pid" 2>/dev/null || true' EXIT
+          ready=0
+          for i in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:8000/health > /dev/null 2>&1; then
+              ready=1
+              break
+            fi
+            sleep 1
+          done
+          if [ "$ready" != "1" ]; then
+            cat /tmp/drawlight-gleam.log
+            exit 1
+          fi
+          curl -fsS -X PUT http://127.0.0.1:8000/diagram \
+            -H 'Content-Type: application/json' \
+            -d '{"version":1,"title":"Smoke","nodes":[],"edges":[]}'
+          curl -fsS http://127.0.0.1:8000/diagram | grep -F '"title":"Smoke"'
   rust:
     runs-on: ubuntu-latest
     steps:

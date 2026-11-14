@@ -18,6 +18,7 @@ export interface DiagramTemplate {
   category: string
   description: string
   diagram: Diagram
+  previewEdges: readonly { x1: number; y1: number; x2: number; y2: number }[]
 }
 
 /**
@@ -37,7 +38,15 @@ function buildTemplate(spec: TemplateSpec): DiagramTemplate {
       label
     }))
   }
-  return { id: spec.id, name: spec.name, category: spec.category, description: spec.description, diagram }
+  const byId = new Map(diagram.nodes.map(node => [node.id, node]))
+  const previewEdges = diagram.edges.flatMap(edge => {
+    const from = byId.get(edge.from)
+    const to = byId.get(edge.to)
+    if (!from || !to) return []
+    return [{ x1: from.x + from.w / 2, y1: from.y + from.h / 2,
+      x2: to.x + to.w / 2, y2: to.y + to.h / 2 }]
+  })
+  return { id: spec.id, name: spec.name, category: spec.category, description: spec.description, diagram, previewEdges }
 }
 
 const definitions: readonly TemplateSpec[] = [

@@ -2,6 +2,7 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
 import { randomUUID } from 'node:crypto'
+import { toMermaid } from '../shared/mermaid.mjs'
 
 const api = (process.env.DRAWLIGHT_API_URL || 'http://127.0.0.1:8000').replace(/\/$/, '')
 const server = new McpServer({ name: 'drawlight', version: '0.1.0' })
@@ -26,25 +27,6 @@ const mutate = async (fn) => {
 }
 const shapeKinds = ['process', 'decision', 'database', 'start', 'note']
 const colors = { process: '#e2eafc', decision: '#fff0cf', database: '#ede4fd', start: '#d9f6ee', note: '#f9deeb' }
-const safeLabel = (s) => String(s).replace(/&/g, '#amp;').replace(/"/g, '#quot;').replace(/</g, '#lt;')
-  .replace(/>/g, '#gt;').replace(/\r?\n/g, ' ').replace(/\|/g, '#124;')
-const mermaid = (d) => {
-  const ids = new Map(d.nodes.map((n, i) => [n.id, `n${i + 1}`]))
-  const lines = ['flowchart LR']
-  for (const n of d.nodes) {
-    const id = ids.get(n.id), label = safeLabel(n.label)
-    const syntax = n.kind === 'decision' ? `{\"${label}\"}`
-      : n.kind === 'database' ? `[(\"${label}\")]`
-      : n.kind === 'start' ? `([\"${label}\"])`
-      : `[\"${label}\"]`
-    lines.push(`  ${id}${syntax}`)
-  }
-  for (const e of d.edges) {
-    const from = ids.get(e.from), to = ids.get(e.to)
-    if (from && to) lines.push(e.label ? `  ${from} -->|\"${safeLabel(e.label)}\"| ${to}` : `  ${from} --> ${to}`)
-  }
-  return lines.join('\n') + '\n'
-}
 
 server.tool('read_diagram', 'Read the current Drawlight document and its node/edge IDs', {}, async () => response(await get()))
 server.tool('add_node', 'Create a diagram node at coordinates in diagram units', {
@@ -81,5 +63,5 @@ server.tool('connect_nodes', 'Connect two existing node IDs with an optional lab
   d.edges.push({ id, from, to, label })
   return { id }
 }))
-server.tool('export_mermaid', 'Export the current diagram as Mermaid flowchart text', {}, async () => response(mermaid(await get())))
+server.tool('export_mermaid', 'Export the current diagram as Mermaid flowchart text', {}, async () => response(toMermaid(await get())))
 await server.connect(new StdioServerTransport())

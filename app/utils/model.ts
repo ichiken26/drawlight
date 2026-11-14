@@ -53,17 +53,21 @@ export const demo: Diagram = {
 export function cloneDiagram(d: Diagram): Diagram {
   return JSON.parse(JSON.stringify(d)) as Diagram
 }
+export const shapeDefaults: Record<NodeKind, { w: number; h: number; label: string; color: string }> = {
+  process: { w: 176, h: 88, label: 'New process', color: palette[0] },
+  decision: { w: 176, h: 112, label: 'Condition?', color: palette[2] },
+  database: { w: 176, h: 88, label: 'Database', color: palette[4] },
+  start: { w: 144, h: 72, label: 'Start', color: palette[1] },
+  note: { w: 176, h: 88, label: 'Note', color: palette[3] }
+}
+
+export function createNode(id: string, kind: NodeKind, label: string, x: number, y: number): DiagramNode {
+  const defaults = shapeDefaults[kind]
+  return { id, kind, label, x, y, w: defaults.w, h: defaults.h, color: defaults.color }
+}
+
 export function newNode(kind: NodeKind, x: number, y: number): DiagramNode {
-  const size = kind === 'start' ? { w: 144, h: 72 } : kind === 'decision' ? { w: 176, h: 112 } : { w: 176, h: 88 }
-  return {
-    id: crypto.randomUUID(),
-    kind,
-    label: ({ process: 'New process', decision: 'Condition?', database: 'Database', start: 'Start', note: 'Note' })[kind],
-    x,
-    y,
-    ...size,
-    color: ({ process: palette[0], decision: palette[2], database: palette[4], start: palette[1], note: palette[3] })[kind]
-  }
+  return createNode(crypto.randomUUID(), kind, shapeDefaults[kind].label, x, y)
 }
 export function parseDiagram(value: unknown): Diagram {
   if (!value || typeof value !== 'object') throw new Error('Invalid diagram')

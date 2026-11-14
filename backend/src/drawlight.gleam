@@ -24,21 +24,25 @@ pub fn main() {
 
 fn handle_request(req: wisp.Request) -> wisp.Response {
   use <- wisp.log_request(req)
-  case #(req.method, wisp.path_segments(req)) {
-    #(http.Get, ["health"]) ->
+  case req.method, wisp.path_segments(req) {
+    http.Get, ["health"] ->
       wisp.json_response("{\"ok\":true,\"runtime\":\"gleam\"}", 200)
 
-    #(http.Get, ["diagram"]) ->
+    http.Get, ["diagram"] ->
       case simplifile.read(from: "./drawlight.json") {
         Ok(content) -> wisp.json_response(content, 200)
         Error(_) -> wisp.not_found()
       }
 
-    #(http.Put, ["diagram"]) -> {
+    http.Put, ["diagram"] -> {
       use body <- wisp.require_string_body(req)
       // The editor validates the full model; the backend checks the JSON
       // syntax and document version before storing the snapshot.
-      case json.parse(body, decode.field("version", decode.int)) {
+      let version_decoder = {
+        use version <- decode.field("version", decode.int)
+        decode.success(version)
+      }
+      case json.parse(body, version_decoder) {
         Ok(1) ->
           case simplifile.write(to: "./drawlight.json", contents: body) {
             Ok(_) -> wisp.json_response("{\"saved\":true}", 200)

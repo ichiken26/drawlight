@@ -1,5 +1,5 @@
-import { createShape, shapeDefaults } from '../../shared/shapes.mjs'
-export { shapeDefaults, palette } from '../../shared/shapes.mjs'
+import { createShape, shapeDefaults, palette } from '../../shared/shapes.mjs'
+export { shapeDefaults, palette }
 
 export type NodeKind = 'process' | 'decision' | 'database' | 'start' | 'note'
 export type Tool = 'select' | NodeKind

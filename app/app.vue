@@ -7,6 +7,7 @@ import {
 import { useDrawlightEditor } from './composables/useDrawlightEditor'
 import TemplateGallery from './components/TemplateGallery.vue'
 import DiagramInspector from './components/DiagramInspector.vue'
+import FunctionCatalog from './components/FunctionCatalog.vue'
 import type { Cardinality, MessageType } from './utils/model'
 
 const {
@@ -17,7 +18,9 @@ const {
     handleStageMove, handleStageUp, handleWheel, changeZoom, fitView, updateNode,
     updateEdgeLabel, renameNode, deleteSelected, edgePath, edgeLabelPosition, selectEdge,
     copyMermaid, exportMermaid, exportJson, exportSvg, importJson, showTemplates, applyTemplate,
-    setNodePosition, availableKinds, sequenceEnd, formatEntityFields, updateEntityFields, updateEdgeSemantics
+    setNodePosition, availableKinds, sequenceEnd, formatEntityFields, updateEntityFields, updateEdgeSemantics,
+    workspace, pageChoices, workspaceOpen, referenceItems, switchPage, createPage,
+    createFunction, updateFunction, deleteFunction, visibleEdgeLabel, handleEdgeLabelDown
 } = useDrawlightEditor()
 </script>
 
@@ -26,12 +29,20 @@ const {
     <header class="topbar">
       <div class="brand"><div class="brand-mark"><Layers :size="20" :stroke-width="2.5" /></div><span>drawlight<span class="brand-dot">.</span></span><span class="brand-tag">BETA</span></div>
       <div class="document-name"><span class="breadcrumb">Workspace <span class="slash">/</span></span><input v-model="diagram.title" aria-label="Diagram title" maxlength="120" /><ChevronDown :size="15" class="subtle-icon" /></div>
+      <div class="page-navigator">
+        <select aria-label="Current diagram" :value="workspace.activeId"
+          @change="switchPage(($event.target as HTMLSelectElement).value)">
+          <option v-for="page in pageChoices" :key="page.id" :value="page.id">{{ page.name }} · {{ page.kind }}</option>
+        </select>
+        <button class="icon-button" title="New page" aria-label="New diagram page" @click="createPage"><Plus :size="18" /></button>
+      </div>
       <div class="top-actions">
         <span class="save-status"><span :class="['status-dot', status]"></span>{{ status === 'saving' ? 'Saving…' : status === 'connected' ? 'Synced to Gleam' : status === 'offline' ? 'Local only · API offline' : 'Saved locally' }}</span>
         <span class="header-divider"></span>
         <button type="button" class="icon-button" title="Undo (Ctrl+Z)" aria-label="Undo" :disabled="!undoStack.length" @click="undo"><Undo2 :size="18" /></button>
         <button type="button" class="icon-button" title="Redo (Ctrl+Shift+Z)" aria-label="Redo" :disabled="!redoStack.length" @click="redo"><Redo2 :size="18" /></button>
         <span class="header-divider"></span>
+        <button type="button" class="button secondary templates-button" @click="workspaceOpen = true"><Layers :size="16" /> Functions</button>
         <button type="button" class="button secondary templates-button" @click="showTemplates"><Layers :size="16" /> Templates</button>
         <button type="button" class="button secondary" @click="fileInput?.click()"><Upload :size="16" /> Import</button>
         <div class="export-wrap">
@@ -92,9 +103,11 @@ const {
                 :stroke-dasharray="diagram.kind === 'sequence' && edge.messageType === 'return' ? '7 5' : undefined"
                 stroke-linejoin="round" :marker-end="diagram.kind === 'er' ? undefined : 'url(#arrow-tip)'" />
               <path class="edge-hit" :d="edgePath(edge)" fill="none" stroke="transparent" stroke-width="19" @pointerdown.stop="selectEdge(edge.id)" />
-              <g v-if="edge.label || diagram.kind === 'er'" :transform="`translate(${edgeLabelPosition(edge).x}, ${edgeLabelPosition(edge).y})`">
-                <rect :x="-Math.max(24, edge.label.length * 3.8 + 10)" y="-13" :width="Math.max(48, edge.label.length * 7.6 + 20)" height="26" rx="8" fill="#fff" stroke="#e5eaf2" />
-                <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="#60708d">{{ diagram.kind === 'er' ? ((edge.cardinality === 'one-to-one' ? '1:1' : edge.cardinality === 'many-to-many' ? 'N:M' : '1:N') + ' · ' + (edge.label || 'relates')) : edge.label }}</text>
+              <g v-if="edge.label || diagram.kind === 'er'" class="draggable-edge-label"
+                :transform="`translate(${edgeLabelPosition(edge).x}, ${edgeLabelPosition(edge).y})`"
+                @pointerdown.stop="handleEdgeLabelDown($event, edge.id)" @click.stop="selectEdge(edge.id)">
+                <rect :x="-Math.max(24, visibleEdgeLabel(edge).length * 3.8 + 10)" y="-13" :width="Math.max(48, visibleEdgeLabel(edge).length * 7.6 + 20)" height="26" rx="8" fill="#fff" stroke="#e5eaf2" />
+                <text text-anchor="middle" dominant-baseline="central" font-size="12" font-weight="600" fill="#60708d">{{ visibleEdgeLabel(edge) }}</text>
               </g>
             </g>
             <path v-if="linkingFrom" class="link-guide" :d="guidePath" stroke="#7068ec" stroke-width="2" stroke-dasharray="7 6" fill="none" />
@@ -151,10 +164,13 @@ const {
 
       <DiagramInspector :diagram-kind="diagram.kind" :selected-node="selectedNode" :selected-edge="selectedEdge"
         :palette="palette" :wasm-ready="wasmReady" :format-entity-fields="formatEntityFields"
+        :suggestions="referenceItems"
         @node-patch="updateNode" @node-position="setNodePosition" @entity-fields="updateEntityFields"
         @edge-label="updateEdgeLabel" @edge-semantics="updateEdgeSemantics" @remove-selected="deleteSelected" />
 
     </div>
+    <FunctionCatalog v-if="workspaceOpen" :functions="workspace.functions" @create="createFunction"
+      @update="updateFunction" @remove="deleteFunction" @close="workspaceOpen = false" />
     <TemplateGallery v-if="templatesOpen" :templates="templates" @apply="applyTemplate" @close="templatesOpen = false" />
     <Transition name="toast"><div v-if="toast" class="toast-message"><Check :size="16" /> {{ toast }}</div></Transition>
   </div>

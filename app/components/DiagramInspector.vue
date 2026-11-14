@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { Check, Circle, Layers, MousePointer2, Trash2 } from 'lucide-vue-next'
 import type { Cardinality, DiagramEdge, DiagramKind, DiagramNode, MessageType } from '../utils/model'
+import type { ReferenceOption } from '../../shared/references.mjs'
+import CompletionInput from './CompletionInput.vue'
 
 defineProps<{
   diagramKind: DiagramKind
   selectedNode: DiagramNode | null
   selectedEdge: DiagramEdge | null
   palette: readonly string[]
+  suggestions: readonly ReferenceOption[]
   wasmReady: boolean
   formatEntityFields: (node: DiagramNode) => string
 }>()
@@ -47,7 +50,8 @@ const emit = defineEmits<{
         </template>
         <template v-else-if="selectedEdge">
           <div class="inspector-section"><div class="selection-eyebrow"><span class="selection-chip">CONNECTION</span></div><label class="field-label">Label</label>
-            <input class="property-input" :value="selectedEdge.label" maxlength="200" placeholder="e.g. HTTP" @change="emit('edge-label', ($event.target as HTMLInputElement).value)" />
+            <CompletionInput :key="selectedEdge.id" :model-value="selectedEdge.label" :suggestions="suggestions"
+              @commit="emit('edge-label', $event)" />
             <template v-if="diagramKind === 'er'">
               <label for="cardinality" class="field-label semantic-label">Cardinality</label>
               <select id="cardinality" class="property-input" :value="selectedEdge.cardinality" @change="emit('edge-semantics', { cardinality: ($event.target as HTMLSelectElement).value as Cardinality })">

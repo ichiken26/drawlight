@@ -68,6 +68,7 @@ export function useDrawlightEditor() {
     undoStack.value.push(before)
     if (undoStack.value.length > 80) undoStack.value.shift()
     redoStack.value = []
+    scheduleSave()
   }
   function undo() {
     const before = undoStack.value.pop()
@@ -75,6 +76,7 @@ export function useDrawlightEditor() {
     redoStack.value.push(snapshot())
     diagram.value = parseDiagram(JSON.parse(before))
     clearSelection()
+    scheduleSave()
   }
   function redo() {
     const after = redoStack.value.pop()
@@ -82,6 +84,7 @@ export function useDrawlightEditor() {
     undoStack.value.push(snapshot())
     diagram.value = parseDiagram(JSON.parse(after))
     clearSelection()
+    scheduleSave()
   }
   function clearSelection() {
     selectedId.value = null
@@ -118,7 +121,7 @@ export function useDrawlightEditor() {
       kind: 'pan', pointer: event.pointerId,
       startX: event.clientX, startY: event.clientY,
       originalX: camera.x, originalY: camera.y,
-      before: snapshot(), moved: false
+      before: '', moved: false // Panning never changes diagram data.
     }
     stage.value?.setPointerCapture(event.pointerId)
   }
@@ -394,17 +397,20 @@ export function useDrawlightEditor() {
     try { localStorage.setItem(STORAGE_KEY, snapshot()) } catch { /* storage may be unavailable */ }
   }
 
-  watch(diagram, () => {
+  function scheduleSave() {
     if (!mounted || suppressSync) return
     editedAt = Date.now()
-    // Avoid serializing the complete diagram at every frame during a drag.
     if (localSaveTimer) clearTimeout(localSaveTimer)
     localSaveTimer = setTimeout(flushLocal, 250)
     if (syncEnabled) {
       if (saveTimer) clearTimeout(saveTimer)
       saveTimer = setTimeout(saveRemote, 750)
     }
-  }, { deep: true, flush: 'post' })
+  }
+
+  // Committed edits save once, not on every pointer frame.
+  // The title is the only mutable field edited directly through v-model.
+  watch(() => diagram.value.title, () => scheduleSave(), { flush: 'sync' })
 
   onMounted(async () => {
     try {

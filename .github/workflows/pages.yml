@@ -22,6 +22,11 @@ jobs:
         with:
           node-version: '22'
       - run: npm install --no-audit --no-fund
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: jetli/wasm-pack-action@v0.4.0
+      - run: npm run build:wasm
       - run: npm run generate
         env:
           NUXT_APP_BASE_URL: /drawlight/

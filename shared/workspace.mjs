@@ -5,7 +5,7 @@ const fail = reason => { throw new Error('Invalid Drawlight workspace: ' + reaso
 
 /** A project owns multiple diagrams and typed function declarations. */
 export function normalizeWorkspace(source) {
-  if (source?.version === 1 || source?.version === 2 && Array.isArray(source.nodes)) {
+  if (source && Array.isArray(source.nodes) && (source.version === 1 || source.version === 2)) {
     return { format: 'drawlight-workspace', version: 1, activeId: 'main',
       pages: [{ id: 'main', diagram: normalizeDiagram(source) }], functions: [] }
   }

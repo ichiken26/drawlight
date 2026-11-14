@@ -77,3 +77,23 @@ test('templates load in two clicks and switching can be undone', async ({ page }
   await page.keyboard.press('Control+z')
   await expect(nodes).toHaveCount(4)
 })
+
+test('dragging commits a move and persists it after a reload', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  const first = page.locator('.diagram-node').first()
+  const before = await first.getAttribute('transform')
+  const box = await first.boundingBox()
+  expect(box).toBeTruthy()
+  const x = box!.x + box!.width / 2
+  const y = box!.y + box!.height / 2
+  await page.mouse.move(x, y)
+  await page.mouse.down()
+  await page.mouse.move(x + 112, y + 72, { steps: 8 })
+  await page.mouse.up()
+
+  await expect(first).not.toHaveAttribute('transform', before!)
+  const moved = await first.getAttribute('transform')
+  expect(moved).toBeTruthy()
+  await page.reload()
+  await expect(page.locator('.diagram-node').first()).toHaveAttribute('transform', moved!)
+})

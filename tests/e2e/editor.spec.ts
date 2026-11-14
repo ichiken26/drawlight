@@ -51,3 +51,29 @@ test('two-click shapes, two-click connection, undo/redo, import/export, autosave
   expect(errors).toEqual([])
   await page.screenshot({ path: 'test-results/editor.png' })
 })
+
+test('templates load in two clicks and switching can be undone', async ({ page }) => {
+  await page.goto('/', { waitUntil: 'domcontentloaded' })
+  const nodes = page.locator('.diagram-node')
+  const edges = page.locator('.edge')
+  await expect(nodes).toHaveCount(4)
+  await page.getByRole('button', { name: 'Templates', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Start with a template' })).toBeVisible()
+  await expect(page.locator('.template-card')).toHaveCount(6)
+
+  await page.getByRole('button', { name: 'Use CI / CD pipeline template' }).click()
+  await expect(nodes).toHaveCount(6)
+  await expect(edges).toHaveCount(5)
+  await expect(page.getByRole('dialog', { name: 'Start with a template' })).toHaveCount(0)
+
+  await page.keyboard.press('Control+z')
+  await expect(nodes).toHaveCount(4)
+  await expect(edges).toHaveCount(3)
+
+  await page.getByRole('button', { name: 'Browse templates' }).click()
+  await page.getByRole('button', { name: 'Use Blank canvas template' }).click()
+  await expect(nodes).toHaveCount(0)
+  await expect(page.getByText('A blank canvas, endless possibilities.')).toBeVisible()
+  await page.keyboard.press('Control+z')
+  await expect(nodes).toHaveCount(4)
+})

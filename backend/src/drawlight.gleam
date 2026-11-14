@@ -52,6 +52,6 @@ fn handle_request(req: wisp.Request) -> wisp.Response {
       }
     }
 
-    _ -> wisp.not_found()
+    _, _ -> wisp.not_found()
   }
 }

@@ -103,7 +103,7 @@ test('ER template is editable and exports PK/FK and cardinality', async ({ page 
   await page.getByRole('button', { name: 'Templates', exact: true }).click()
   await page.getByRole('button', { name: 'Use ER · SaaS schema template' }).click()
   await expect(page.locator('.diagram-node')).toHaveCount(4)
-  await expect(page.locator('.diagram-node').first().getByText('id')).toBeVisible()
+  await expect(page.locator('.diagram-node').first().getByText('PK id', { exact: true })).toBeVisible()
   await page.locator('.diagram-node').first().click()
   await expect(page.locator('#entity-fields')).toHaveValue(/id: uuid PK/)
   await page.locator('#entity-fields').fill('id: uuid PK\nemail: varchar\nstatus: varchar')

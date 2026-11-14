@@ -3,8 +3,8 @@ import { cloneDiagram, demo, GRID, kinds, newNode, palette, parseDiagram } from 
 import type { Diagram, DiagramEdge, DiagramNode, NodeKind, Tool } from '../utils/model'
 import { templates, type DiagramTemplate } from '../utils/templates'
 import { initGeometry, pathBetween, snap } from '../utils/geometry'
-import { toMermaid } from '../utils/mermaid'
 import { useDiagramHistory } from './useDiagramHistory'
+import { useDiagramFileIO } from './useDiagramFileIO'
 import { createConnection, formatEntityFields, parseEntityFields, sequenceBottom, sequencePath, sequenceY, toolsFor } from '../utils/diagramSemantics'
 import type { Cardinality, MessageType } from '../utils/model'
 
@@ -312,56 +312,18 @@ export function useDrawlightEditor() {
     selectedId.value = null
     linkingFrom.value = null
   }
-  function download(filename: string, value: string, type: string) {
-    const url = URL.createObjectURL(new Blob([value], { type }))
-    const anchor = document.createElement('a')
-    anchor.href = url; anchor.download = filename
-    document.body.appendChild(anchor)
-    anchor.click(); anchor.remove()
-    setTimeout(() => URL.revokeObjectURL(url), 1000)
-  }
-  function safeName() { return diagram.value.title.trim().replace(/[^\w\-]+/g, '-').replace(/^-|-$/g, '') || 'diagram' }
-  async function copyMermaid() {
-    try { await navigator.clipboard.writeText(toMermaid(diagram.value)); flash('Mermaid copied!') }
-    catch { download(safeName() + '.mmd', toMermaid(diagram.value), 'text/plain'); flash('Downloaded Mermaid instead') }
-    exportOpen.value = false
-  }
-  function exportMermaid() { download(safeName() + '.mmd', toMermaid(diagram.value), 'text/plain'); exportOpen.value = false; flash('Mermaid exported') }
-  function exportJson() {
-    download(safeName() + '.drawlight.json', JSON.stringify(diagram.value, null, 2), 'application/json')
-    exportOpen.value = false; flash('Drawlight JSON exported')
-  }
-  function exportSvg() {
-    if (!stage.value || !diagram.value.nodes.length) { flash('Add a shape first'); return }
-    const svg = stage.value.cloneNode(true) as SVGSVGElement
-    const nodes = diagram.value.nodes
-    const minX = Math.min(...nodes.map(n => n.x)) - 48, minY = Math.min(...nodes.map(n => n.y)) - 48
-    const maxX = Math.max(...nodes.map(n => n.x + n.w)) + 48, maxY = Math.max(...nodes.map(n => n.y + n.h), diagram.value.kind === 'sequence' ? sequenceEnd.value : 0) + 48
-    svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
-    svg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`)
-    svg.setAttribute('width', String(maxX - minX))
-    svg.setAttribute('height', String(maxY - minY))
-    svg.querySelector('#diagram-layer')?.setAttribute('transform', '')
-    svg.querySelector('.grid-canvas')?.remove()
-    svg.querySelectorAll('.node-port, .selection-outline, .link-guide, .edge-hit').forEach(el => el.remove())
-    const markup = new XMLSerializer().serializeToString(svg)
-    download(safeName() + '.svg', markup, 'image/svg+xml')
-    exportOpen.value = false; flash('SVG exported')
-  }
-  async function importJson(event: Event) {
-    const input = event.target as HTMLInputElement
-    const file = input.files?.[0]
-    input.value = ''
-    if (!file) return
-    if (file.size > 2_000_000) { flash('File is too large'); return }
-    try {
-      const next = parseDiagram(JSON.parse(await file.text()))
+  const { copyMermaid, exportMermaid, exportJson, exportSvg, importJson } = useDiagramFileIO({
+    diagram, stage, exportOpen, notify: flash,
+    onImport: async (imported) => {
       const before = snapshot()
-      diagram.value = next
-      checkpoint(before); clearSelection()
-      await nextTick(); fitView(); flash('Diagram imported')
-    } catch { flash('Invalid Drawlight JSON') }
-  }
+      diagram.value = imported
+      checkpoint(before)
+      clearSelection()
+      tool.value = 'select'
+      await nextTick()
+      fitView()
+    }
+  })
   function showTemplates() {
     exportOpen.value = false
     templatesOpen.value = true

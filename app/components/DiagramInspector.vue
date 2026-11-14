@@ -27,17 +27,17 @@ const emit = defineEmits<{
         <template v-if="selectedNode">
           <div class="inspector-section"><div class="selection-eyebrow"><span class="selection-chip">NODE</span><span>{{ selectedNode.kind }}</span></div>
             <label for="node-label" class="field-label">Label</label>
-            <input id="node-label" class="property-input" :value="selectedNode.label" maxlength="200" @change="emit("node-patch", { label: ($event.target as HTMLInputElement).value })" />
+            <input id="node-label" class="property-input" :value="selectedNode.label" maxlength="200" @change="emit('node-patch', { label: ($event.target as HTMLInputElement).value })" />
           </div>
           <div v-if="diagramKind === 'er' && selectedNode.kind === 'entity'" class="inspector-section">
             <div class="section-title">Table columns</div>
             <label for="entity-fields" class="field-label">One per line · name: type PK/FK</label>
             <textarea id="entity-fields" class="property-input fields-editor" rows="8"
               :value="formatEntityFields(selectedNode)"
-              @change="emit("entity-fields", ($event.target as HTMLTextAreaElement).value)"></textarea>
+              @change="emit('entity-fields', ($event.target as HTMLTextAreaElement).value)"></textarea>
           </div>
           <div class="inspector-section"><div class="section-title">Appearance</div><label class="field-label">Fill color</label>
-            <div class="color-swatches"><button v-for="color in palette" :key="color" :style="{ background: color }" :class="{ active: selectedNode.color === color }" :aria-label="`Color ${color}`" @click="emit("node-patch", { color })"><Check v-if="selectedNode.color === color" :size="13" /></button></div>
+            <div class="color-swatches"><button v-for="color in palette" :key="color" :style="{ background: color }" :class="{ active: selectedNode.color === color }" :aria-label="`Color ${color}`" @click="emit('node-patch', { color })"><Check v-if="selectedNode.color === color" :size="13" /></button></div>
           </div>
           <div class="inspector-section"><div class="section-title">Position</div><div class="input-grid">
             <label>X <input class="property-input" type="number" :value="selectedNode.x" @change="emit('node-position', 'x', ($event.target as HTMLInputElement).value)" /></label>
@@ -47,16 +47,16 @@ const emit = defineEmits<{
         </template>
         <template v-else-if="selectedEdge">
           <div class="inspector-section"><div class="selection-eyebrow"><span class="selection-chip">CONNECTION</span></div><label class="field-label">Label</label>
-            <input class="property-input" :value="selectedEdge.label" maxlength="200" placeholder="e.g. HTTP" @change="emit("edge-label", ($event.target as HTMLInputElement).value)" />
+            <input class="property-input" :value="selectedEdge.label" maxlength="200" placeholder="e.g. HTTP" @change="emit('edge-label', ($event.target as HTMLInputElement).value)" />
             <template v-if="diagramKind === 'er'">
               <label for="cardinality" class="field-label semantic-label">Cardinality</label>
-              <select id="cardinality" class="property-input" :value="selectedEdge.cardinality" @change="emit("edge-semantics", { cardinality: ($event.target as HTMLSelectElement).value as Cardinality })">
+              <select id="cardinality" class="property-input" :value="selectedEdge.cardinality" @change="emit('edge-semantics', { cardinality: ($event.target as HTMLSelectElement).value as Cardinality })">
                 <option value="one-to-one">1 : 1</option><option value="one-to-many">1 : N</option><option value="many-to-many">N : M</option>
               </select>
             </template>
             <template v-if="diagramKind === 'sequence'">
               <label for="message-type" class="field-label semantic-label">Message type</label>
-              <select id="message-type" class="property-input" :value="selectedEdge.messageType" @change="emit("edge-semantics", { messageType: ($event.target as HTMLSelectElement).value as MessageType })">
+              <select id="message-type" class="property-input" :value="selectedEdge.messageType" @change="emit('edge-semantics', { messageType: ($event.target as HTMLSelectElement).value as MessageType })">
                 <option value="call">Call</option><option value="async">Asynchronous</option><option value="return">Return</option>
               </select>
             </template>

@@ -4,6 +4,8 @@ import type { Diagram, DiagramEdge, DiagramNode, NodeKind, Tool } from '../utils
 import { templates, type DiagramTemplate } from '../utils/templates'
 import { initGeometry, pathBetween, snap } from '../utils/geometry'
 import { toMermaid } from '../utils/mermaid'
+import { createConnection, formatEntityFields, parseEntityFields, sequenceBottom, sequencePath, sequenceY, toolsFor } from '../utils/diagramSemantics'
+import type { Cardinality, MessageType } from '../utils/model'
 
 /** A single state controller for editing, history, gestures, and persistence. */
 export function useDrawlightEditor() {
@@ -28,6 +30,8 @@ export function useDrawlightEditor() {
   const redoStack = ref<string[]>([])
   const selectedNode = computed(() => diagram.value.nodes.find(n => n.id === selectedId.value) || null)
   const selectedEdge = computed(() => diagram.value.edges.find(e => e.id === selectedEdgeId.value) || null)
+  const availableKinds = computed(() => kinds.filter(item => toolsFor(diagram.value.kind).includes(item.kind)))
+  const sequenceEnd = computed(() => sequenceBottom(diagram.value))
   const nodeMap = computed(() => new Map(diagram.value.nodes.map(n => [n.id, n])))
   const cameraTransform = computed(() => `translate(${camera.x} ${camera.y}) scale(${camera.zoom})`)
   const guidePath = computed(() => {
@@ -106,7 +110,10 @@ export function useDrawlightEditor() {
     if (event.button !== 0 && event.button !== 1) return
     if (event.button === 0 && tool.value !== 'select' && !isSpaceDown) {
       const point = worldPoint(event)
-      const node = newNode(tool.value as NodeKind, snap(point.x - 88, GRID), snap(point.y - 44, GRID))
+      if (!toolsFor(diagram.value.kind).includes(tool.value as NodeKind)) return
+      const node = newNode(tool.value as NodeKind, 0, 0)
+      node.x = snap(point.x - node.w / 2, GRID)
+      node.y = diagram.value.kind === 'sequence' ? 64 : snap(point.y - node.h / 2, GRID)
       const before = snapshot()
       diagram.value.nodes.push(node)
       checkpoint(before)
@@ -156,12 +163,15 @@ export function useDrawlightEditor() {
     flash('Click the destination shape to connect')
   }
   function connect(from: string, to: string) {
-    if (from === to) { flash('Choose a different destination'); return }
-    if (diagram.value.edges.some(e => e.from === from && e.to === to)) { flash('Already connected'); return }
-    const before = snapshot()
-    diagram.value.edges.push({ id: crypto.randomUUID(), from, to, label: '' })
-    checkpoint(before)
-    flash('Connected!')
+    try {
+      const edge = createConnection(diagram.value, from, to, crypto.randomUUID())
+      const before = snapshot()
+      diagram.value.edges.push(edge)
+      checkpoint(before)
+      flash(diagram.value.kind === 'sequence' ? 'Message added' : 'Connected!')
+    } catch (error) {
+      flash(error instanceof Error ? error.message : 'Unable to connect')
+    }
   }
   function handleStageMove(event: PointerEvent) {
     const p = worldPoint(event)
@@ -178,7 +188,7 @@ export function useDrawlightEditor() {
       const node = nodeMap.value.get(gesture.id!)
       if (!node) return
       node.x = snap(gesture.originalX + dx / camera.zoom, GRID)
-      node.y = snap(gesture.originalY + dy / camera.zoom, GRID)
+      if (diagram.value.kind !== 'sequence') node.y = snap(gesture.originalY + dy / camera.zoom, GRID)
     }
   }
   function handleStageUp(event: PointerEvent) {
@@ -217,7 +227,7 @@ export function useDrawlightEditor() {
     const minX = Math.min(...nodes.map(n => n.x))
     const minY = Math.min(...nodes.map(n => n.y))
     const maxX = Math.max(...nodes.map(n => n.x + n.w))
-    const maxY = Math.max(...nodes.map(n => n.y + n.h))
+    const maxY = Math.max(...nodes.map(n => n.y + n.h), diagram.value.kind === 'sequence' ? sequenceEnd.value : 0)
     const contentW = maxX - minX + 160
     const contentH = maxY - minY + 160
     camera.zoom = Math.min(1.25, Math.max(0.25, Math.min(rect.width / contentW, rect.height / contentH)))
@@ -228,6 +238,27 @@ export function useDrawlightEditor() {
     if (!selectedNode.value) return
     const before = snapshot()
     Object.assign(selectedNode.value, patch)
+    checkpoint(before)
+  }
+  function updateEntityFields(text: string) {
+    const node = selectedNode.value
+    if (diagram.value.kind !== 'er' || !node || node.kind !== 'entity') return
+    try {
+      const fields = parseEntityFields(text, node.fields || [])
+      const before = snapshot()
+      node.fields = fields
+      node.h = Math.max(72, 50 + fields.length * 25)
+      checkpoint(before)
+    } catch (error) {
+      flash(error instanceof Error ? error.message : 'Invalid field definition')
+    }
+  }
+  function updateEdgeSemantics(patch: { cardinality?: Cardinality; messageType?: MessageType }) {
+    const edge = selectedEdge.value
+    if (!edge) return
+    const before = snapshot()
+    if (diagram.value.kind === 'er' && patch.cardinality) edge.cardinality = patch.cardinality
+    if (diagram.value.kind === 'sequence' && patch.messageType) edge.messageType = patch.messageType
     checkpoint(before)
   }
   function updateEdgeLabel(value: string) {
@@ -277,21 +308,27 @@ export function useDrawlightEditor() {
     if (templatesOpen.value) return
     if (event.key.toLowerCase() === 't') { showTemplates(); return }
     if (event.key === 'Delete' || event.key === 'Backspace') { event.preventDefault(); deleteSelected() }
-    const shortcuts: Record<string, Tool> = { v: 'select', r: 'process', d: 'decision', b: 'database', s: 'start', n: 'note' }
+    const shortcuts: Record<string, Tool> = { v: 'select', r: 'process', d: 'decision', b: 'database', s: 'start', n: 'note', e: 'entity', p: 'participant' }
     const mapped = shortcuts[event.key.toLowerCase()]
-    if (mapped) setTool(mapped)
+    if (mapped && (mapped === 'select' || toolsFor(diagram.value.kind).includes(mapped as NodeKind))) setTool(mapped)
   }
   function onKeyUp(event: KeyboardEvent) { if (event.code === 'Space') isSpaceDown = false }
   function onBlur() { isSpaceDown = false; gesture = null }
   function edgePath(edge: DiagramEdge) {
     const a = nodeMap.value.get(edge.from)
     const b = nodeMap.value.get(edge.to)
+    if (diagram.value.kind === 'sequence') return sequencePath(diagram.value, edge)
     return a && b ? pathBetween(a, b) : ''
   }
   function edgeLabelPosition(edge: DiagramEdge) {
     const a = nodeMap.value.get(edge.from), b = nodeMap.value.get(edge.to)
     if (!a || !b) return { x: 0, y: 0 }
-    return { x: (a.x + a.w / 2 + b.x + b.w / 2) / 2, y: (a.y + a.h / 2 + b.y + b.h / 2) / 2 - 10 }
+    return {
+      x: (a.x + a.w / 2 + b.x + b.w / 2) / 2,
+      y: diagram.value.kind === 'sequence'
+        ? sequenceY(diagram.value, edge) - 19
+        : (a.y + a.h / 2 + b.y + b.h / 2) / 2 - 10
+    }
   }
   function selectEdge(id: string) {
     selectedEdgeId.value = id
@@ -322,7 +359,7 @@ export function useDrawlightEditor() {
     const svg = stage.value.cloneNode(true) as SVGSVGElement
     const nodes = diagram.value.nodes
     const minX = Math.min(...nodes.map(n => n.x)) - 48, minY = Math.min(...nodes.map(n => n.y)) - 48
-    const maxX = Math.max(...nodes.map(n => n.x + n.w)) + 48, maxY = Math.max(...nodes.map(n => n.y + n.h)) + 48
+    const maxX = Math.max(...nodes.map(n => n.x + n.w)) + 48, maxY = Math.max(...nodes.map(n => n.y + n.h), diagram.value.kind === 'sequence' ? sequenceEnd.value : 0) + 48
     svg.setAttribute('xmlns', 'http://www.w3.org/2000/svg')
     svg.setAttribute('viewBox', `${minX} ${minY} ${maxX - minX} ${maxY - minY}`)
     svg.setAttribute('width', String(maxX - minX))
@@ -354,7 +391,7 @@ export function useDrawlightEditor() {
   }
   function applyTemplate(template: DiagramTemplate) {
     const before = snapshot()
-    diagram.value = cloneDiagram(template.diagram)
+    diagram.value = parseDiagram(cloneDiagram(template.diagram))
     checkpoint(before)
     clearSelection()
     tool.value = 'select'
@@ -443,6 +480,7 @@ export function useDrawlightEditor() {
   })
   return {
     stage, fileInput, diagram, tool, selectedId, selectedEdgeId, linkingFrom,
+    availableKinds, sequenceEnd, formatEntityFields, updateEntityFields, updateEdgeSemantics,
     exportOpen, templatesOpen, toast, wasmReady, status, camera, undoStack, redoStack,
     selectedNode, selectedEdge, cameraTransform, guidePath, kinds, palette, templates,
     undo, redo, setTool, handleStageDown, handleNodeDown, handleNodeClick, startLink,
